@@ -1,10 +1,10 @@
-# 🎓 GPA Calculator (Web Version)
+# GPA Calculator (Web Version)
 
 A simple GPA calculator built with HTML, CSS, and JavaScript. It allows users to input course units and grades to compute GPA based on a 4.0 scale.
 
-Live here 👉 [Click to Use](https://gaiuso33.github.io/gpa-calculator-web/)
+Live here [Click to Use](https://gaiuso33.github.io/gpa-calculator-web/)
 
-## ✨ Features
+## Features
 
 - Dynamic course entry (add as many as needed)
 - GPA calculation using:
@@ -17,7 +17,7 @@ Live here 👉 [Click to Use](https://gaiuso33.github.io/gpa-calculator-web/)
 
 ---
 
-## 💡 Technologies Used
+## Technologies Used
 
 - HTML
 - CSS
@@ -26,7 +26,7 @@ Live here 👉 [Click to Use](https://gaiuso33.github.io/gpa-calculator-web/)
 
 ---
 
-## 📦 How to Use
+## How to Use
 
 1. Click the **+ Add Course** button to enter unit and grade
 2. Fill in the required info
@@ -35,7 +35,7 @@ Live here 👉 [Click to Use](https://gaiuso33.github.io/gpa-calculator-web/)
 
 ---
 
-## 🧠 What I Learned
+## What I Learned
 
 - DOM manipulation with JavaScript
 - Structuring web pages using HTML/CSS
@@ -43,9 +43,9 @@ Live here 👉 [Click to Use](https://gaiuso33.github.io/gpa-calculator-web/)
 
 ---
 
-## 👨‍💻 Author
+##  Author
 
 **[Oluwole Gaius Ayokunle]**  
-📫 [oluwolegaiusayokunle@gmail.com]  
+[oluwolegaiusayokunle@gmail.com]  
 🔗 [Notion Portfolio](https://www.notion.so/hero-section-22064fc37bca80e1ae99fcb6a8cf5704?source=copy_link)  
 🔗 [LinkedIn](https://www.linkedin.com/in/oluwole-gaius-962342260/)
