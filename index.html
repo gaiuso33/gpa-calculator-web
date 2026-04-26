@@ -1,19 +1,260 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>GPA Calculator (4.0)</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="GPA Calculator Pro — Track your academic performance with precision." />
+  <title>GPA Calculator Pro</title>
+
+  <!-- Google Fonts: Sora (headings) + Plus Jakarta Sans (body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap"
+    rel="stylesheet"
+  />
+
+  <link rel="stylesheet" href="css/style.css" />
 </head>
+
 <body>
-  <div class="container">
-    <h1>GPA Calculator</h1>
-    <div id="courses"></div>
-    <button onclick="addCourse()">+ Add Course</button>
-    <button onclick="calculateGPA()">Calculate GPA</button>
-    <p id="result"></p>
+  <header class="app-header">
+    <div class="header-inner">
+
+      <div class="logo">
+        <svg class="logo-hex" viewBox="0 0 40 46" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M20 1L38 11.5V34.5L20 45L2 34.5V11.5L20 1Z" stroke="currentColor" stroke-width="2"/>
+          <text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">GP</text>
+        </svg>
+        <span class="logo-text">GPA<strong>Pro</strong></span>
+      </div>
+
+      <div class="header-controls">
+        <!-- Grading Scale Selector -->
+        <div class="scale-pill">
+          <label for="grading-scale" class="scale-label">Scale</label>
+          <select id="grading-scale" class="scale-select" aria-label="Grading scale">
+            <option value="5.0">5.0 Scale</option>
+            <option value="4.0">4.0 Scale</option>
+          </select>
+        </div>
+
+        <!-- Dark/Light Toggle -->
+        <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark/light mode" title="Toggle theme">
+          <span class="theme-icon-moon">🌙</span>
+          <span class="theme-icon-sun">☀️</span>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+
+  <!-- ===========================
+       MAIN APP CONTENT
+  ============================ -->
+  <main class="app-main">
+
+    <!-- ── Dashboard Stats ── -->
+    <section class="dashboard" aria-label="GPA Summary">
+
+      <!-- GPA Card -->
+      <div class="stat-card gpa-card">
+        <div class="gpa-ring-wrap">
+          <svg class="gpa-ring" viewBox="0 0 120 120">
+            <circle class="ring-bg"  cx="60" cy="60" r="52" />
+            <circle class="ring-fill" id="ring-fill" cx="60" cy="60" r="52" />
+          </svg>
+          <div class="gpa-ring-text">
+            <span class="gpa-value" id="gpa-display">—</span>
+            <span class="gpa-out-of" id="scale-label">/ 5.0</span>
+          </div>
+        </div>
+        <div class="stat-label">Current GPA</div>
+      </div>
+
+      <!-- Classification Card -->
+      <div class="stat-card class-card">
+        <div class="stat-label">Classification</div>
+        <div class="classification-badge no-data" id="classification-badge">No Data</div>
+        <p class="class-desc" id="class-desc">Add courses to see your classification</p>
+      </div>
+
+      <!-- Total Units Card -->
+      <div class="stat-card mini-card">
+        <div class="mini-icon">📐</div>
+        <div class="stat-value" id="total-units">0</div>
+        <div class="stat-label">Total Units</div>
+      </div>
+
+      <!-- Grade Points Card -->
+      <div class="stat-card mini-card">
+        <div class="mini-icon">✦</div>
+        <div class="stat-value" id="total-points">0.00</div>
+        <div class="stat-label">Grade Points</div>
+      </div>
+
+    </section>
+
+
+    <!-- ── Calculator Section ── -->
+    <section class="calculator-section" aria-label="Course entry">
+
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Courses</h2>
+          <span class="course-count" id="course-count">0 courses</span>
+        </div>
+        <button class="btn btn-primary pulse-once" id="add-course-btn" aria-label="Add a new course">
+          <span aria-hidden="true">＋</span> Add Course
+        </button>
+      </div>
+
+      <!-- Column Labels (desktop) -->
+      <div class="course-table-head" aria-hidden="true">
+        <span>Course Title</span>
+        <span>Code</span>
+        <span>Units</span>
+        <span>Grade</span>
+        <span>GP</span>
+        <span></span>
+      </div>
+
+      <!-- Dynamic Course Rows -->
+      <div id="course-list" class="course-list" role="list" aria-label="Course list">
+        <!-- Rows injected by JS -->
+      </div>
+
+      <!-- Empty State -->
+      <div class="empty-state" id="empty-state" aria-live="polite">
+        <span class="empty-icon" aria-hidden="true">📚</span>
+        <p class="empty-title">No courses yet</p>
+        <p class="empty-sub">Click <strong>Add Course</strong> to get started tracking your semester</p>
+      </div>
+
+      <!-- Action Bar -->
+      <div class="action-bar">
+        <button class="btn btn-danger-ghost" id="reset-btn" title="Clear all courses">
+          <span aria-hidden="true">↺</span> Reset
+        </button>
+        <div class="action-right">
+          <button class="btn btn-success" id="save-btn" title="Save semester to history">
+            <span aria-hidden="true">💾</span> Save Semester
+          </button>
+          <button class="btn btn-outline" id="export-csv-btn" title="Download as CSV">
+            <span aria-hidden="true">📄</span> CSV
+          </button>
+          <button class="btn btn-outline" id="export-pdf-btn" title="Download as PDF">
+            <span aria-hidden="true">📑</span> PDF
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+
+    <!-- ── Semester History ── -->
+    <section class="history-section" id="history-section" aria-label="Saved semesters">
+
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Semester History</h2>
+          <span class="course-count" id="history-count">0 saved</span>
+        </div>
+        <button class="btn btn-danger-ghost btn-sm" id="clear-history-btn" title="Delete all saved semesters">
+          Clear All
+        </button>
+      </div>
+
+      <div id="history-list" class="history-list" role="list">
+        <!-- History cards injected by JS -->
+      </div>
+
+      <div class="empty-state" id="history-empty" aria-live="polite">
+        <span class="empty-icon" aria-hidden="true">🗂️</span>
+        <p class="empty-title">No saved semesters</p>
+        <p class="empty-sub">Save a semester above to build your academic history</p>
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <!-- ===========================
+       SAVE SEMESTER MODAL
+  ============================ -->
+  <div class="modal-overlay" id="save-modal" role="dialog" aria-modal="true" aria-labelledby="save-modal-title" hidden>
+    <div class="modal">
+      <h3 class="modal-title" id="save-modal-title">💾 Save Semester</h3>
+      <p class="modal-desc">Give this semester a name (e.g. "200L First Semester").</p>
+      <div class="form-group">
+        <input
+          type="text"
+          id="semester-name-input"
+          class="modal-input"
+          placeholder="Semester name…"
+          maxlength="60"
+          autocomplete="off"
+        />
+        <span class="field-error" id="semester-name-error" role="alert"></span>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="modal-cancel">Cancel</button>
+        <button class="btn btn-success" id="modal-confirm">Save</button>
+      </div>
+    </div>
   </div>
-  <script src="script.js"></script>
+
+
+  <!-- ===========================
+       VIEW SEMESTER MODAL
+  ============================ -->
+  <div class="modal-overlay" id="view-modal" role="dialog" aria-modal="true" aria-labelledby="view-modal-title" hidden>
+    <div class="modal modal-wide">
+      <div class="modal-top-bar">
+        <h3 class="modal-title" id="view-modal-title">Semester Details</h3>
+        <button class="btn btn-ghost btn-icon" id="view-modal-close" aria-label="Close">✕</button>
+      </div>
+      <div id="view-modal-body" class="view-modal-body">
+        <!-- Injected by JS -->
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ===========================
+       RENAME MODAL
+  ============================ -->
+  <div class="modal-overlay" id="rename-modal" role="dialog" aria-modal="true" aria-labelledby="rename-modal-title" hidden>
+    <div class="modal">
+      <h3 class="modal-title" id="rename-modal-title">✏️ Rename Semester</h3>
+      <div class="form-group">
+        <input
+          type="text"
+          id="rename-input"
+          class="modal-input"
+          placeholder="New semester name…"
+          maxlength="60"
+          autocomplete="off"
+        />
+        <span class="field-error" id="rename-error" role="alert"></span>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="rename-cancel">Cancel</button>
+        <button class="btn btn-primary" id="rename-confirm">Rename</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <!-- jsPDF for PDF export (CDN — requires internet on first load) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
+
+  <script src="js/app.js"></script>
 </body>
 </html>
