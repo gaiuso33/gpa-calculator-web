@@ -15,6 +15,14 @@
   />
 
   <link rel="stylesheet" href="css/style.css" />
+  
+  <!-- SVG Ring Animation CSS -->
+  <style>
+    .gpa-ring .ring-fill {
+      transition: stroke-dashoffset 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+      will-change: stroke-dashoffset;
+    }
+  </style>
 </head>
 
 <body>
@@ -73,6 +81,20 @@
         <div class="stat-label">Current GPA</div>
       </div>
 
+      <!-- CGPA Card (NEW) -->
+      <div class="stat-card gpa-card">
+        <div class="gpa-ring-wrap">
+          <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">
+            <div style="text-align: center;">
+              <span class="gpa-value" id="cgpa-display" style="font-size: 2.2rem;">—</span>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">CGPA</div>
+            </div>
+          </div>
+        </div>
+        <div class="stat-label">Cumulative GPA</div>
+        <p class="class-desc" id="cgpa-count" style="text-align: center; margin-top: 8px; font-size: 0.85rem;">Save semesters to see CGPA</p>
+      </div>
+
       <!-- Classification Card -->
       <div class="stat-card class-card">
         <div class="stat-label">Classification</div>
@@ -105,10 +127,18 @@
           <h2 class="section-title">Courses</h2>
           <span class="course-count" id="course-count">0 courses</span>
         </div>
-        <button class="btn btn-primary pulse-once" id="add-course-btn" aria-label="Add a new course">
-          <span aria-hidden="true">＋</span> Add Course
-        </button>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-outline btn-sm" id="import-btn" aria-label="Import courses from CSV or JSON">
+            <span aria-hidden="true">📥</span> Import
+          </button>
+          <button class="btn btn-primary pulse-once" id="add-course-btn" aria-label="Add a new course">
+            <span aria-hidden="true">＋</span> Add Course
+          </button>
+        </div>
       </div>
+
+      <!-- Hidden import input -->
+      <input type="file" id="import-file" accept=".csv,.json" hidden aria-hidden="true" />
 
       <!-- Column Labels (desktop) -->
       <div class="course-table-head" aria-hidden="true">
@@ -129,19 +159,19 @@
       <div class="empty-state" id="empty-state" aria-live="polite">
         <span class="empty-icon" aria-hidden="true">📚</span>
         <p class="empty-title">No courses yet</p>
-        <p class="empty-sub">Click <strong>Add Course</strong> to get started tracking your semester</p>
+        <p class="empty-sub">Click <strong>Add Course</strong> or <strong>Import</strong> to get started tracking your semester</p>
       </div>
 
       <!-- Action Bar -->
       <div class="action-bar">
-        <button class="btn btn-danger-ghost" id="reset-btn" title="Clear all courses">
+        <button class="btn btn-danger-ghost" id="reset-btn" title="Clear all courses (Ctrl+R)">
           <span aria-hidden="true">↺</span> Reset
         </button>
         <div class="action-right">
-          <button class="btn btn-success" id="save-btn" title="Save semester to history">
+          <button class="btn btn-success" id="save-btn" title="Save semester to history (Ctrl+S)">
             <span aria-hidden="true">💾</span> Save Semester
           </button>
-          <button class="btn btn-outline" id="export-csv-btn" title="Download as CSV">
+          <button class="btn btn-outline" id="export-csv-btn" title="Download as CSV (Ctrl+E)">
             <span aria-hidden="true">📄</span> CSV
           </button>
           <button class="btn btn-outline" id="export-pdf-btn" title="Download as PDF">
@@ -255,6 +285,22 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
 
+  <!-- Enhanced GPA Calculator App -->
   <script src="js/app.js"></script>
+
+  <!-- Keyboard shortcuts help text -->
+  <script>
+    // Show keyboard shortcuts on first load
+    if (!localStorage.getItem('gpa_shortcuts_shown')) {
+      document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+          console.log('%c🎓 GPA Calculator Pro — Keyboard Shortcuts', 'font-size: 16px; font-weight: bold; color: #34d399;');
+          console.log('%cCtrl+N: Add new course\nCtrl+S: Save semester\nCtrl+E: Export CSV\nCtrl+Z: Undo\nCtrl+R: Reset\nEsc: Close modals', 'font-size: 12px; color: #8895af;');
+          localStorage.setItem('gpa_shortcuts_shown', '1');
+        }, 500);
+      });
+    }
+  </script>
 </body>
 </html>
+
