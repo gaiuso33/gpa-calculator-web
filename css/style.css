@@ -1255,7 +1255,16 @@ select.field-input option {
 /* ────────────────────────────────────────────────────────────
    13. UTILITY
 ──────────────────────────────────────────────────────────── */
-
+.planner-form { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.planner-form .modal-input { width: auto; flex: 1 1 180px; margin: 0; }
+.planner-msg { margin: 16px 0 8px; font-size: 0.9rem; line-height: 1.5; }
+.planner-good { color: var(--success); }
+.planner-bad  { color: var(--danger); }
+.planner-combo { background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-top: 10px; }
+.planner-combo-head { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; font-size: 0.85rem; margin-bottom: 8px; }
+.planner-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.planner-chip { font-size: 0.75rem; padding: 3px 10px; border-radius: 99px; background: var(--surface-3); border: 1px solid var(--border); }
+.planner-note { margin-top: 14px; font-size: 0.72rem; color: var(--text-faint); }
 .hidden { display: none !important; }
 .sr-only {
   position: absolute;
@@ -1263,11 +1272,6 @@ select.field-input option {
   padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0,0,0,0);
   white-space: nowrap; border: 0;
-}
-body {
-  font-family: Arial, sans-serif;
-  background: #f2f2f2;
-  padding: 20px;
 }
 
 .container {
@@ -1279,8 +1283,3 @@ body {
   border-radius: 8px;
 }
 
-input, select {
-  margin: 5px;
-  padding: 8px;
-  width: 45%;
-}

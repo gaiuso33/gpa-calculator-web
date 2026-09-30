@@ -3,7 +3,6 @@
 **[Oluwole Gaius Ayokunle]**  
 [oluwolegaiusayokunle@gmail.com]  
 🔗 [Notion Portfolio](https://www.notion.so/hero-section-22064fc37bca80e1ae99fcb6a8cf5704?source=copy_link)  
-🔗 [LinkedIn](https://www.linkedin.com/in/oluwole-gaius-962342260/)
 
 
 # 🎓 GPA Calculator Pro — Enhanced Edition

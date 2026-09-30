@@ -15,6 +15,10 @@
   />
 
   <link rel="stylesheet" href="css/style.css" />
+  <link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#080c18" />
+<link rel="icon" type="image/png" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   
   <!-- SVG Ring Animation CSS -->
   <style>
@@ -46,7 +50,7 @@
             <option value="4.0">4.0 Scale</option>
           </select>
         </div>
-
+        <button class="btn btn-outline btn-sm" id="install-btn" hidden>⬇ Install</button>
         <!-- Dark/Light Toggle -->
         <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark/light mode" title="Toggle theme">
           <span class="theme-icon-moon">🌙</span>
@@ -182,6 +186,20 @@
 
     </section>
 
+<section class="calculator-section planner-section" aria-label="Target planner">
+  <div class="section-header">
+    <div>
+      <h2 class="section-title">🎯 Target Planner</h2>
+      <span class="course-count">Uses your saved history + the courses listed above</span>
+    </div>
+  </div>
+  <div class="planner-form">
+    <select id="planner-class" class="modal-input" aria-label="Target class"></select>
+    <input id="planner-target" class="modal-input" type="number" step="0.01" min="0.1" placeholder="or custom target GPA" aria-label="Custom target GPA" />
+    <button class="btn btn-primary" id="planner-run">Plan it</button>
+  </div>
+  <div id="planner-result" class="planner-result" aria-live="polite"></div>
+</section>
 
     <!-- ── Semester History ── -->
     <section class="history-section" id="history-section" aria-label="Saved semesters">
@@ -191,9 +209,12 @@
           <h2 class="section-title">Semester History</h2>
           <span class="course-count" id="history-count">0 saved</span>
         </div>
-        <button class="btn btn-danger-ghost btn-sm" id="clear-history-btn" title="Delete all saved semesters">
-          Clear All
-        </button>
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-outline btn-sm" id="backup-btn">⬇ Backup</button>
+          <button class="btn btn-outline btn-sm" id="restore-btn">⬆ Restore</button>
+          <button class="btn btn-danger-ghost btn-sm" id="clear-history-btn" title="Delete all saved semesters">Clear All</button>
+        </div>
+        <input type="file" id="restore-file" accept=".json,application/json" hidden />
       </div>
 
       <div id="history-list" class="history-list" role="list">
@@ -278,6 +299,24 @@
   </div>
 
 
+  <div class="modal-overlay" id="restore-modal" role="dialog" aria-modal="true" aria-labelledby="restore-modal-title" hidden>
+  <div class="modal">
+    <h3 class="modal-title" id="restore-modal-title">⬆ Restore Backup</h3>
+    <p class="modal-desc" id="restore-summary"></p>
+    <label style="display:block; margin-bottom:8px;">
+      <input type="radio" name="restore-mode" value="merge" checked> <strong>Merge</strong> — keep current history, add missing semesters
+    </label>
+    <label style="display:block;">
+      <input type="radio" name="restore-mode" value="replace"> <strong>Replace</strong> — discard current history
+    </label>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="restore-cancel">Cancel</button>
+      <button class="btn btn-primary" id="restore-confirm">Restore</button>
+    </div>
+  </div>
+  </div>
+
+
   <!-- Toast Notification -->
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -287,7 +326,6 @@
 
   <!-- Enhanced GPA Calculator App -->
   <script src="js/app.js"></script>
-
   <!-- Keyboard shortcuts help text -->
   <script>
     // Show keyboard shortcuts on first load
@@ -301,6 +339,7 @@
       });
     }
   </script>
+  <script src="js/pwa.js"></script>
 </body>
 </html>
 
