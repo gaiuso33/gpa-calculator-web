@@ -15,6 +15,10 @@
   />
 
   <link rel="stylesheet" href="css/style.css" />
+  <link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#080c18" />
+<link rel="icon" type="image/png" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   
   <!-- SVG Ring Animation CSS -->
   <style>
@@ -46,7 +50,7 @@
             <option value="4.0">4.0 Scale</option>
           </select>
         </div>
-
+        <button class="btn btn-outline btn-sm" id="install-btn" hidden>⬇ Install</button>
         <!-- Dark/Light Toggle -->
         <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark/light mode" title="Toggle theme">
           <span class="theme-icon-moon">🌙</span>
@@ -182,6 +186,20 @@
 
     </section>
 
+<section class="calculator-section planner-section" aria-label="Target planner">
+  <div class="section-header">
+    <div>
+      <h2 class="section-title">🎯 Target Planner</h2>
+      <span class="course-count">Uses your saved history + the courses listed above</span>
+    </div>
+  </div>
+  <div class="planner-form">
+    <select id="planner-class" class="modal-input" aria-label="Target class"></select>
+    <input id="planner-target" class="modal-input" type="number" step="0.01" min="0.1" placeholder="or custom target GPA" aria-label="Custom target GPA" />
+    <button class="btn btn-primary" id="planner-run">Plan it</button>
+  </div>
+  <div id="planner-result" class="planner-result" aria-live="polite"></div>
+</section>
 
     <!-- ── Semester History ── -->
     <section class="history-section" id="history-section" aria-label="Saved semesters">
@@ -308,11 +326,6 @@
 
   <!-- Enhanced GPA Calculator App -->
   <script src="js/app.js"></script>
-  <script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(console.error));
-  }
-  </script>
   <!-- Keyboard shortcuts help text -->
   <script>
     // Show keyboard shortcuts on first load
@@ -326,6 +339,7 @@
       });
     }
   </script>
+  <script src="js/pwa.js"></script>
 </body>
 </html>
 

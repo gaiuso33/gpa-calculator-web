@@ -26,7 +26,8 @@ function loadApp() {
 
   const publish = `
 ;globalThis.__gpa = {
-  GRADE_SCALES, CLASSIFICATIONS, State, Calculator, Storage, Import, CGPA
+  GRADE_SCALES, CLASSIFICATIONS, State, Calculator, Storage, Import, CGPA,
+  Planner: typeof Planner !== 'undefined' ? Planner : undefined
 };`;
   vm.runInContext(src + publish, sandbox, { filename: file });
   return { ...sandbox.__gpa, localStorage: sandbox.localStorage };

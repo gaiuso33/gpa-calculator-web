@@ -734,6 +734,129 @@ const CGPA = {
   }
 };
 
+/* ============================================================
+   PLANNER MODULE — Target-GPA planner (Jira #18)
+   Paste into js/app.js right after the CGPA module.
+   Pure logic only: no DOM access, so it is unit-testable.
+   ============================================================ */
+
+const Planner = {
+  /** Units/points already banked in saved semesters on the given scale. */
+  standing(semesters, scale) {
+    let units = 0, points = 0, used = 0, ignored = 0;
+    for (const s of semesters) {
+      if (s.scale !== scale) { ignored++; continue; }          // never mix 4.0 and 5.0 points
+      const r = Calculator.calculate(s.courses || [], scale);
+      if (r.totalUnits > 0) { units += r.totalUnits; points += r.totalPoints; used++; }
+    }
+    return {
+      units, points, used, ignored,
+      cgpa: units > 0 ? Math.round((points / units) * 100) / 100 : null,
+    };
+  },
+
+  /** Class thresholds for the scale, best first: [{ label, min }] */
+  classTargets(scale) {
+    return (CLASSIFICATIONS[scale] ?? []).map(r => ({ label: r.label, min: r.min }));
+  },
+
+  /**
+   * @param {object} p
+   * @param {number} p.units    units already completed (saved semesters)
+   * @param {number} p.points   grade points already earned
+   * @param {{title:string, unit:number}[]} p.courses  planned courses
+   * @param {number} p.target   target CGPA
+   * @param {string} p.scale    '5.0' | '4.0'
+   * @returns status: 'invalid' | 'secured' | 'reachable' | 'unreachable'
+   *
+   * The app rounds GPA to 2 d.p. before classifying, so a CGPA of 4.496 shows
+   * as 4.50 and counts as First Class. The planner uses the same rule
+   * (target - 0.005) so its advice matches what the app will display.
+   */
+  plan({ units = 0, points = 0, courses, target, scale }) {
+    const round2 = x => Math.round((x + 1e-9) * 100) / 100;   // tiny nudge: 4.495 → 4.50, not 4.49
+    const EPS = 1e-9;
+    const table = GRADE_SCALES[scale];
+    if (!table) return { status: 'invalid', message: 'Unknown grading scale.' };
+
+    const list = (courses || []).filter(c => c && c.unit > 0);
+    if (list.length === 0) {
+      return { status: 'invalid', message: 'Add at least one planned course with units first.' };
+    }
+    if (!isFinite(target) || target <= 0 || target > table.max) {
+      return { status: 'invalid', message: `Enter a target between 0 and ${table.max}.` };
+    }
+
+    const plannedUnits = list.reduce((s, c) => s + c.unit, 0);
+    const totalUnits = units + plannedUnits;
+    const needed = (target - 0.005) * totalUnits - points;   // points required from planned courses
+    const required = needed / plannedUnits;                    // required average grade value
+
+    const out = {
+      status: 'reachable',
+      target, scale,
+      currentCGPA: units > 0 ? round2(points / units) : null,
+      completedUnits: units,
+      plannedUnits,
+      requiredAverage: round2(Math.max(0, required)),
+      maxAchievable: round2((points + table.max * plannedUnits) / totalUnits),
+      minAchievable: round2(points / totalUnits),
+      combos: [],
+    };
+
+    if (needed <= EPS) { out.status = 'secured'; return out; }
+    if (required > table.max + EPS) { out.status = 'unreachable'; return out; }
+
+    /* ── Example grade combinations ── */
+    const grades = Object.entries(table.grades).sort((a, b) => a[1] - b[1]);   // ascending
+    const [lowL, lowV] = grades[0];
+    const [topL, topV] = grades[grades.length - 1];
+    const val = g => table.grades[g];
+    const pointsOf = g => g.reduce((s, x, i) => s + list[i].unit * val(x), 0);
+    const meets = g => pointsOf(g) >= needed - EPS;
+    const order = list.map((_, i) => i).sort((a, b) => list[b].unit - list[a].unit);   // biggest first
+    const seen = new Set();
+
+    const add = (label, g) => {
+      const sig = g.join('');
+      if (seen.has(sig) || !meets(g)) return;
+      seen.add(sig);
+      out.combos.push({
+        label,
+        assignments: list.map((c, i) => ({ title: c.title, unit: c.unit, grade: g[i] })),
+        resultCGPA: round2((points + pointsOf(g)) / totalUnits),
+      });
+    };
+
+    // 1. Steady: the same grade everywhere
+    const uni = grades.find(([, v]) => v * plannedUnits >= needed - EPS)[0];
+    add(`Steady: ${uni} in every course`, list.map(() => uni));
+
+    // 2. Mixed: lower grade baseline, upgrade the biggest courses until the target is met
+    const floor = [...grades].reverse().find(([, v]) => v <= required + EPS);
+    if (floor && floor[0] !== uni) {
+      const g = list.map(() => floor[0]);
+      for (const i of order) { if (meets(g)) break; g[i] = uni; }
+      add(`Mixed: mostly ${floor[0]}, ${uni} in the biggest courses`, g);
+    }
+
+    // 3. Stretch: top grade in the biggest courses, lowest grade on the rest
+    {
+      const g = list.map(() => lowL);
+      for (const i of order) {
+        if (meets(g)) break;
+        const rem = needed - (pointsOf(g) - lowV * list[i].unit);
+        if (topV * list[i].unit <= rem + EPS) { g[i] = topL; continue; }
+        g[i] = grades.find(([, v]) => v * list[i].unit >= rem - EPS)[0];
+        break;
+      }
+      add(`Stretch: ${topL} in the biggest courses, lighter grades elsewhere`, g);
+    }
+
+    return out;
+  },
+};
+
 
 /* ============================================================
    9. UI MODULE
@@ -979,6 +1102,54 @@ const UI = {
     }
   },
 
+  populatePlannerTargets() {
+    const sel = document.getElementById('planner-class');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Custom GPA…</option>' +
+      Planner.classTargets(State.scale).filter(t => t.min > 0)
+        .map(t => `<option value="${t.min}">${this._escape(t.label)} (≥ ${t.min.toFixed(2)})</option>`).join('');
+    const box = document.getElementById('planner-result');
+    if (box) box.innerHTML = '';
+  },
+
+  renderPlanner(r, standing) {
+    const box = document.getElementById('planner-result');
+    if (!box) return;
+    const max = GRADE_SCALES[State.scale].max;
+    let html = '';
+
+    if (r.status === 'invalid') {
+      html = `<p class="planner-msg planner-bad">${this._escape(r.message)}</p>`;
+    } else if (r.status === 'unreachable') {
+      html = `<p class="planner-msg planner-bad"><strong>Not reachable this semester.</strong>
+      Even the top grade in every planned course would only give a CGPA of
+      <strong>${r.maxAchievable.toFixed(2)}</strong>, below your target of ${r.target.toFixed(2)}.
+      Try a lower target, or spread the climb over more semesters.</p>`;
+    } else if (r.status === 'secured') {
+      html = `<p class="planner-msg planner-good"><strong>Already secured.</strong>
+      Even if every planned course went badly, your CGPA would stay at ${r.minAchievable.toFixed(2)} or better,
+      which meets your target of ${r.target.toFixed(2)}.</p>`;
+    } else {
+      const grades = Object.entries(GRADE_SCALES[State.scale].grades).sort((a, b) => a[1] - b[1]);
+      const letter = (grades.find(([, v]) => v >= r.requiredAverage) || grades[grades.length - 1])[0];
+      html = `<p class="planner-msg"><strong>You need an average grade value of ${r.requiredAverage.toFixed(2)} / ${max}</strong>
+      (about a <strong>${letter}</strong>) across your ${r.plannedUnits} planned units to reach ${r.target.toFixed(2)}.
+      Best possible: ${r.maxAchievable.toFixed(2)}.</p>` +
+        r.combos.map(c => `
+        <div class="planner-combo">
+          <div class="planner-combo-head"><span>${this._escape(c.label)}</span><span>→ CGPA ${c.resultCGPA.toFixed(2)}</span></div>
+          <div class="planner-chips">${c.assignments.map(a =>
+          `<span class="planner-chip">${this._escape(a.title)} (${a.unit}u): <strong>${a.grade}</strong></span>`).join('')}</div>
+        </div>`).join('');
+    }
+
+    if (standing) {
+      html += `<p class="planner-note">Based on ${standing.used} saved semester${standing.used !== 1 ? 's' : ''}
+      (${standing.units} units${standing.cgpa !== null ? `, CGPA ${standing.cgpa.toFixed(2)}` : ''}).
+      ${standing.ignored ? `${standing.ignored} saved on the other scale ${standing.ignored !== 1 ? 'were' : 'was'} ignored.` : ''}</p>`;
+    }
+    box.innerHTML = html;
+  },
   /* ── VIEW MODAL ── */
 
   openViewModal(semesterId) {
@@ -1263,6 +1434,7 @@ function addCourse() {
     setTimeout(() => row.querySelector('.course-title')?.focus(), 50);
 
     UI.updateDashboard();
+    UI.populatePlannerTargets();
   } catch (err) {
     console.error('Add course error:', err);
     UI.toast('Failed to add course', 'error');
@@ -1284,7 +1456,7 @@ function removeCourse(courseId) {
       row.remove();
       syncStateFromDOM();
       UI.updateDashboard();
-
+      UI.populatePlannerTargets();
       const n = State.courses.length;
       UI.els.courseCount.textContent = `${n} course${n !== 1 ? 's' : ''}`;
       UI.els.emptyState.classList.toggle('hidden', n > 0);
@@ -1318,6 +1490,7 @@ function resetSemester() {
       UI.els.emptyState.classList.remove('hidden');
       UI.els.courseCount.textContent = '0 courses';
       UI.updateDashboard();
+      UI.populatePlannerTargets();
       UI.toast('Semester reset.', 'info');
     }, State.courses.length * 30 + 200);
   } catch (err) {
@@ -1361,6 +1534,7 @@ function confirmSave() {
     UI.renderHistory();
     CGPA.updateDisplay();
     UI.toast(`"${name}" saved!`, 'success');
+    
   } catch (err) {
     console.error('Confirm save error:', err);
     UI.toast('Failed to save semester', 'error');
@@ -1389,6 +1563,20 @@ function wireEvents() {
         return;
       }
       UI.openSaveModal();
+    });
+
+    /* ── Target planner (#18) ── */
+    const plannerClass = document.getElementById('planner-class');
+    const plannerTarget = document.getElementById('planner-target');
+    plannerClass.addEventListener('change', () => { plannerTarget.disabled = !!plannerClass.value; });
+    document.getElementById('planner-run').addEventListener('click', () => {
+      syncStateFromDOM();
+      const standing = Planner.standing(Storage.loadSemesters(), State.scale);
+      const courses = State.courses
+        .filter(c => parseFloat(c.unit) > 0)
+        .map(c => ({ title: (c.title || '').trim() || 'Untitled course', unit: parseFloat(c.unit) }));
+      const target = plannerClass.value ? parseFloat(plannerClass.value) : parseFloat(plannerTarget.value);
+      UI.renderPlanner(Planner.plan({ units: standing.units, points: standing.points, courses, target, scale: State.scale }), standing);
     });
 
     /* ── Backup / Restore (#15) ── */
@@ -1505,6 +1693,7 @@ function wireEvents() {
         syncStateFromDOM();
         UI.refreshGradeSelects();
         UI.updateDashboard();
+        UI.populatePlannerTargets();
         UI.toast(`Switched to ${State.scale} scale`, 'info');
       } catch (err) {
         console.error('Scale change error:', err);
@@ -1700,6 +1889,7 @@ function wireEvents() {
   } catch (err) {
     console.error('Wire events error:', err);
   }
+
 }
 
 
@@ -1789,6 +1979,7 @@ const App = {
 
       /* ── Wire events ── */
       wireEvents();
+      UI.populatePlannerTargets();
 
       /* ── Initialize ── */
       addCourse();

@@ -3,13 +3,19 @@
  * first use, then serve cache-first with a background refresh.
  * Bump CACHE_VERSION whenever shipped files change.
  */
-const CACHE_VERSION = 'gpapro-v1';
+const CACHE_VERSION = 'gpapro-v2';
 
 const APP_SHELL = [
   './',
   'index.html',
+  'manifest.webmanifest',
   'css/style.css',
   'js/app.js',
+  'js/pwa.js',
+  'icons/icon-192.png',
+  'icons/icon-512.png',
+  'icons/icon-maskable-512.png',
+  'icons/apple-touch-icon.png',
 ];
 
 const CDN_ASSETS = [
