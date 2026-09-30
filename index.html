@@ -191,9 +191,12 @@
           <h2 class="section-title">Semester History</h2>
           <span class="course-count" id="history-count">0 saved</span>
         </div>
-        <button class="btn btn-danger-ghost btn-sm" id="clear-history-btn" title="Delete all saved semesters">
-          Clear All
-        </button>
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-outline btn-sm" id="backup-btn">⬇ Backup</button>
+          <button class="btn btn-outline btn-sm" id="restore-btn">⬆ Restore</button>
+          <button class="btn btn-danger-ghost btn-sm" id="clear-history-btn" title="Delete all saved semesters">Clear All</button>
+        </div>
+        <input type="file" id="restore-file" accept=".json,application/json" hidden />
       </div>
 
       <div id="history-list" class="history-list" role="list">
@@ -278,6 +281,24 @@
   </div>
 
 
+  <div class="modal-overlay" id="restore-modal" role="dialog" aria-modal="true" aria-labelledby="restore-modal-title" hidden>
+  <div class="modal">
+    <h3 class="modal-title" id="restore-modal-title">⬆ Restore Backup</h3>
+    <p class="modal-desc" id="restore-summary"></p>
+    <label style="display:block; margin-bottom:8px;">
+      <input type="radio" name="restore-mode" value="merge" checked> <strong>Merge</strong> — keep current history, add missing semesters
+    </label>
+    <label style="display:block;">
+      <input type="radio" name="restore-mode" value="replace"> <strong>Replace</strong> — discard current history
+    </label>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="restore-cancel">Cancel</button>
+      <button class="btn btn-primary" id="restore-confirm">Restore</button>
+    </div>
+  </div>
+  </div>
+
+
   <!-- Toast Notification -->
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -287,7 +308,11 @@
 
   <!-- Enhanced GPA Calculator App -->
   <script src="js/app.js"></script>
-
+  <script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(console.error));
+  }
+  </script>
   <!-- Keyboard shortcuts help text -->
   <script>
     // Show keyboard shortcuts on first load

@@ -1264,11 +1264,6 @@ select.field-input option {
   overflow: hidden; clip: rect(0,0,0,0);
   white-space: nowrap; border: 0;
 }
-body {
-  font-family: Arial, sans-serif;
-  background: #f2f2f2;
-  padding: 20px;
-}
 
 .container {
   background: white;
@@ -1277,10 +1272,4 @@ body {
   margin: auto;
   box-shadow: 0 0 10px rgba(0,0,0,0.1);
   border-radius: 8px;
-}
-
-input, select {
-  margin: 5px;
-  padding: 8px;
-  width: 45%;
 }

@@ -65,26 +65,26 @@ const GRADE_SCALES = {
 
 const CLASSIFICATIONS = {
   '5.0': [
-    { min: 4.50, max: 5.00, label: 'First Class',        cssClass: 'first-class',  desc: 'Outstanding academic performance' },
+    { min: 4.50, max: 5.00, label: 'First Class', cssClass: 'first-class', desc: 'Outstanding academic performance' },
     { min: 3.50, max: 4.49, label: 'Second Class Upper', cssClass: 'second-upper', desc: 'Excellent academic performance' },
     { min: 2.40, max: 3.49, label: 'Second Class Lower', cssClass: 'second-lower', desc: 'Good academic performance' },
-    { min: 1.50, max: 2.39, label: 'Third Class',        cssClass: 'third-class',  desc: 'Satisfactory academic performance' },
-    { min: 1.00, max: 1.49, label: 'Pass',               cssClass: 'pass',         desc: 'Minimum passing threshold' },
-    { min: 0.00, max: 0.99, label: 'Fail',               cssClass: 'fail',         desc: 'Below minimum passing threshold' },
+    { min: 1.50, max: 2.39, label: 'Third Class', cssClass: 'third-class', desc: 'Satisfactory academic performance' },
+    { min: 1.00, max: 1.49, label: 'Pass', cssClass: 'pass', desc: 'Minimum passing threshold' },
+    { min: 0.00, max: 0.99, label: 'Fail', cssClass: 'fail', desc: 'Below minimum passing threshold' },
   ],
   '4.0': [
-    { min: 3.60, max: 4.00, label: 'First Class',        cssClass: 'first-class',  desc: 'Outstanding academic performance' },
+    { min: 3.60, max: 4.00, label: 'First Class', cssClass: 'first-class', desc: 'Outstanding academic performance' },
     { min: 3.00, max: 3.59, label: 'Second Class Upper', cssClass: 'second-upper', desc: 'Excellent academic performance' },
     { min: 2.00, max: 2.99, label: 'Second Class Lower', cssClass: 'second-lower', desc: 'Good academic performance' },
-    { min: 1.00, max: 1.99, label: 'Third Class',        cssClass: 'third-class',  desc: 'Satisfactory academic performance' },
-    { min: 0.50, max: 0.99, label: 'Pass',               cssClass: 'pass',         desc: 'Minimum passing threshold' },
-    { min: 0.00, max: 0.49, label: 'Fail',               cssClass: 'fail',         desc: 'Below minimum passing threshold' },
+    { min: 1.00, max: 1.99, label: 'Third Class', cssClass: 'third-class', desc: 'Satisfactory academic performance' },
+    { min: 0.50, max: 0.99, label: 'Pass', cssClass: 'pass', desc: 'Minimum passing threshold' },
+    { min: 0.00, max: 0.49, label: 'Fail', cssClass: 'fail', desc: 'Below minimum passing threshold' },
   ],
 };
 
 const STORAGE_KEY = 'gpapro_semesters';
-const THEME_KEY   = 'gpapro_theme';
-const SCALE_KEY   = 'gpapro_scale';
+const THEME_KEY = 'gpapro_theme';
+const SCALE_KEY = 'gpapro_scale';
 const RING_CIRCUMFERENCE = 2 * Math.PI * 52;
 
 
@@ -123,18 +123,18 @@ const Calculator = {
 
   calculate(courses, scale) {
     let totalPoints = 0;
-    let totalUnits  = 0;
-    let validCount  = 0;
+    let totalUnits = 0;
+    let validCount = 0;
 
     for (const course of courses) {
       const unit = parseFloat(course.unit);
-      const gp   = this.gradePoint(course.grade, scale);
+      const gp = this.gradePoint(course.grade, scale);
 
       if (!course.grade || isNaN(unit) || unit <= 0 || gp === null) continue;
 
       totalPoints += unit * gp;
-      totalUnits  += unit;
-      validCount  += 1;
+      totalUnits += unit;
+      validCount += 1;
     }
 
     const gpa = totalUnits > 0 ? totalPoints / totalUnits : 0;
@@ -152,7 +152,7 @@ const Calculator = {
       return null;
     }
     const rules = CLASSIFICATIONS[scale] ?? [];
-    return rules.find(r => gpa >= r.min && gpa <= r.max) ?? rules[rules.length - 1];
+    return rules.find(r => gpa >= r.min) ?? rules[rules.length - 1];
   },
 };
 
@@ -172,6 +172,63 @@ const Storage = {
     }
   },
 
+  buildBackup() {
+    return JSON.stringify({
+      app: 'gpapro', version: 1,
+      exportedAt: new Date().toISOString(),
+      semesters: this.loadSemesters(),
+    }, null, 2);
+  },
+
+  parseBackup(text) {
+    let data;
+    try { data = JSON.parse(text); } catch { throw new Error('File is not valid JSON'); }
+    if (!data || data.app !== 'gpapro' || !Array.isArray(data.semesters)) throw new Error('Not a GPA Pro backup file');
+    if (data.version > 1) throw new Error('Backup was made by a newer version of GPA Pro');
+
+    const semesters = []; let skipped = 0;
+    data.semesters.forEach((s, i) => {
+      const name = typeof s?.name === 'string' ? s.name.trim().slice(0, 60) : '';
+      if (!name || !GRADE_SCALES[s.scale] || !Array.isArray(s.courses)) { skipped++; return; }
+      const scale = s.scale;
+      const courses = s.courses.map(c => {
+        const g = String(c?.grade ?? '').toUpperCase();
+        const n = parseFloat(c?.unit);
+        return {
+          id: `course_${i}_${Math.random().toString(36).slice(2, 8)}`,
+          title: String(c?.title ?? '').slice(0, 100),
+          code: String(c?.code ?? '').slice(0, 20),
+          unit: (isFinite(n) && n > 0 && n <= 50) ? String(n) : '',
+          grade: (g in GRADE_SCALES[scale].grades) ? g : '',
+        };
+      });
+      const r = Calculator.calculate(courses, scale);      // recompute, never trust file totals
+      if (r.validCount === 0) { skipped++; return; }
+      const d = new Date(s.savedAt);
+      semesters.push({
+        id: (typeof s.id === 'string' && /^[\w-]+$/.test(s.id)) ? s.id : `sem_${Date.now()}_${i}`,
+        name, scale, gpa: r.gpa, totalUnits: r.totalUnits, totalPoints: r.totalPoints, courses,
+        savedAt: isNaN(d) ? new Date().toISOString() : d.toISOString(),
+      });
+    });
+    return { semesters, skipped };
+  },
+
+  mergeSemesters(existing, incoming) {
+    const ids = new Set(existing.map(s => s.id));
+    const fresh = incoming.filter(s => !ids.has(s.id));
+    const all = [...existing, ...fresh].sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
+    return { semesters: all, added: fresh.length, duplicates: incoming.length - fresh.length };
+  },
+
+  restoreBackup(text, mode) {
+    const { semesters, skipped } = this.parseBackup(text);
+    if (mode === 'replace') { this.saveSemesters(semesters); return { added: semesters.length, duplicates: 0, skipped }; }
+    const m = this.mergeSemesters(this.loadSemesters(), semesters);
+    this.saveSemesters(m.semesters);
+    return { added: m.added, duplicates: m.duplicates, skipped };
+  },
+
   saveSemesters(semesters) {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(semesters));
@@ -184,14 +241,14 @@ const Storage = {
   addSemester(name, courses, result, scale) {
     const semesters = this.loadSemesters();
     const entry = {
-      id:          `sem_${Date.now()}`,
-      name:        name.trim(),
+      id: `sem_${Date.now()}`,
+      name: name.trim(),
       scale,
-      gpa:         result.gpa,
-      totalUnits:  result.totalUnits,
+      gpa: result.gpa,
+      totalUnits: result.totalUnits,
       totalPoints: result.totalPoints,
-      courses:     courses.map(c => ({ ...c })),
-      savedAt:     new Date().toISOString(),
+      courses: courses.map(c => ({ ...c })),
+      savedAt: new Date().toISOString(),
     };
     semesters.unshift(entry);
     this.saveSemesters(semesters);
@@ -262,32 +319,29 @@ const Export = {
       const scaleLabel = GRADE_SCALES[scale].label;
 
       const header = ['Course Title', 'Course Code', 'Units', 'Grade', 'Grade Points'];
-      const rows   = courses.map(c => {
+
+      const rows = courses.map(c => {
         const unit = parseFloat(c.unit);
-        const gp   = Calculator.gradePoint(c.grade, scale);
-        const pts  = (unit > 0 && gp !== null) ? (unit * gp).toFixed(2) : '';
-        return [
-          this._csvEscape(c.title  || ''),
-          this._csvEscape(c.code   || ''),
-          c.unit  || '',
-          c.grade || '',
-          pts,
-        ];
+        const gp = Calculator.gradePoint(c.grade, scale);
+        const pts = (unit > 0 && gp !== null) ? (unit * gp).toFixed(2) : '';
+        return [c.title || '', c.code || '', c.unit || '', c.grade || '', pts];
       });
 
       const summary = [
         [],
         ['Grading Scale', `${scaleLabel} Scale`],
-        ['Total Units',   result.totalUnits],
+        ['Total Units', result.totalUnits],
         ['Total Grade Points', result.totalPoints.toFixed(2)],
         ['GPA', result.gpa.toFixed(2)],
         ['Classification', classInfo ? classInfo.label : '—'],
-        ['Generated', new Date().toLocaleString()],
+        ['Generated', new Date().toISOString()],   // locale-independent, no commas
       ];
 
-      const csvContent = [header, ...rows, ...summary]
-        .map(row => row.join(','))
-        .join('\n');
+      // Escape every cell exactly once, here (rows above are raw values now).
+      // BOM makes Excel read UTF-8 correctly (the "—" character).
+      const csvContent = '\uFEFF' + [header, ...rows, ...summary]
+        .map(row => row.map(v => this._csvEscape(v)).join(','))
+        .join('\r\n');
 
       this._downloadFile(csvContent, 'gpa-report.csv', 'text/csv;charset=utf-8;');
       UI.toast('CSV downloaded!', 'success');
@@ -313,9 +367,9 @@ const Export = {
       const { jsPDF } = window.jspdf || window;
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-      const classInfo  = Calculator.classify(result.gpa, scale);
+      const classInfo = Calculator.classify(result.gpa, scale);
       const scaleLabel = GRADE_SCALES[scale].label;
-      const pageW      = doc.internal.pageSize.getWidth();
+      const pageW = doc.internal.pageSize.getWidth();
 
       /* Header */
       doc.setFillColor(8, 12, 24);
@@ -360,12 +414,12 @@ const Export = {
         .filter(c => c.title || c.unit || c.grade)
         .map(c => {
           const unit = parseFloat(c.unit);
-          const gp   = Calculator.gradePoint(c.grade, scale);
-          const pts  = (unit > 0 && gp !== null) ? (unit * gp).toFixed(2) : '—';
+          const gp = Calculator.gradePoint(c.grade, scale);
+          const pts = (unit > 0 && gp !== null) ? (unit * gp).toFixed(2) : '—';
           return [
             c.title || '—',
-            c.code  || '—',
-            c.unit  || '—',
+            c.code || '—',
+            c.unit || '—',
             c.grade || '—',
             gp !== null ? String(gp) : '—',
             pts,
@@ -378,10 +432,10 @@ const Export = {
         body: tableBody,
         theme: 'grid',
         headStyles: {
-          fillColor:  [20, 30, 53],
-          textColor:  [52, 211, 153],
-          fontStyle:  'bold',
-          fontSize:   9,
+          fillColor: [20, 30, 53],
+          textColor: [52, 211, 153],
+          fontStyle: 'bold',
+          fontSize: 9,
         },
         bodyStyles: {
           fontSize: 9,
@@ -417,19 +471,17 @@ const Export = {
   },
 
   _csvEscape(value) {
-    const str = String(value);
-    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-      return `"${str.replace(/"/g, '""')}"`;
-    }
-    return str;
+    let str = String(value ?? '');
+    if (/^[=+\-@]/.test(str) && isNaN(Number(str))) str = "'" + str; // formula-injection guard
+    return /[",\r\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
   },
 
   _downloadFile(content, filename, mimeType) {
     try {
       const blob = new Blob([content], { type: mimeType });
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href     = url;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
       a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
@@ -446,109 +498,114 @@ const Export = {
    ============================================================ */
 
 const Import = {
-  /**
-   * Parse CSV text and return courses array
-   */
-  parseCSV(text) {
-    const lines = text.trim().split('\n');
-    if (lines.length < 2) throw new Error('CSV must have header row and at least one data row');
-
-    const header = lines[0].split(',').map(h => h.trim().toLowerCase());
-    const courses = [];
-    
-    for (let i = 1; i < lines.length; i++) {
-      if (!lines[i].trim()) continue;
-      
-      const values = lines[i].split(',').map(v => v.trim());
-      const course = { id: State.nextId() };
-      
-      header.forEach((col, idx) => {
-        if (col === 'title' || col === 'course' || col === 'course title') course.title = values[idx];
-        if (col === 'code' || col === 'course code') course.code = values[idx];
-        if (col === 'unit' || col === 'units' || col === 'credit' || col === 'credits') course.unit = values[idx];
-        if (col === 'grade') course.grade = values[idx];
-      });
-      
-      // Only include courses with a title
-      if (course.title) {
-        course.title = course.title || '';
-        course.code = course.code || '';
-        course.unit = course.unit || '';
-        course.grade = course.grade || '';
-        courses.push(course);
-      }
+  /** Quote-aware CSV tokenizer. Stops at the first blank line (export summary block). */
+  _tokenize(text) {
+    const rows = []; let row = [], cell = '', q = false;
+    text = text.replace(/^\uFEFF/, '');
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (q) {
+        if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+        else if (ch === '"') q = false;
+        else cell += ch;
+      } else if (ch === '"') q = true;
+      else if (ch === ',') { row.push(cell); cell = ''; }
+      else if (ch === '\n' || ch === '\r') {
+        if (ch === '\r' && text[i + 1] === '\n') i++;
+        row.push(cell); cell = '';
+        if (row.every(c => c.trim() === '')) break;   // blank line = end of course table
+        rows.push(row); row = [];
+      } else cell += ch;
     }
-    
-    return courses;
+    if (cell !== '' || row.length) { row.push(cell); if (!row.every(c => c.trim() === '')) rows.push(row); }
+    return rows;
   },
 
-  /**
-   * Parse JSON text and return courses array
-   */
+  /** Validate one raw record against the active scale. Returns { course } or { error }. */
+  _validate(raw, label) {
+    const title = String(raw.title ?? '').trim();
+    const code = String(raw.code ?? '').trim();
+    const unit = String(raw.unit ?? '').trim();
+    const grade = String(raw.grade ?? '').trim().toUpperCase();
+    const scale = GRADE_SCALES[State.scale];
+
+    if (!title) return { error: `${label}: missing course title` };
+    const n = parseFloat(unit);
+    if (isNaN(n) || n <= 0 || n > 50) return { error: `${label}: units "${unit}" must be a number between 0 and 50` };
+    if (grade && !(grade in scale.grades)) {
+      const valid = Object.keys(scale.grades).join(', ');
+      return { error: `${label}: grade "${raw.grade}" is not valid on the ${State.scale} scale (use ${valid})` };
+    }
+    return { course: { id: State.nextId(), title, code, unit: String(n), grade } };
+  },
+
+  parseCSV(text) {
+    const rows = this._tokenize(text);
+    if (rows.length < 2) throw new Error('CSV must have a header row and at least one data row');
+    const header = rows[0].map(h => h.trim().toLowerCase());
+    const col = names => header.findIndex(h => names.includes(h));
+    const idx = {
+      title: col(['title', 'course', 'course title']),
+      code: col(['code', 'course code']),
+      unit: col(['unit', 'units', 'credit', 'credits']),
+      grade: col(['grade']),
+    };
+    if (idx.title < 0 || idx.unit < 0) throw new Error('CSV needs "Course Title" and "Units" columns');
+
+    const courses = [], errors = [];
+    rows.slice(1).forEach((r, i) => {
+      const res = this._validate({
+        title: r[idx.title], code: idx.code >= 0 ? r[idx.code] : '',
+        unit: r[idx.unit], grade: idx.grade >= 0 ? r[idx.grade] : '',
+      }, `Row ${i + 2}`);
+      res.error ? errors.push(res.error) : courses.push(res.course);
+    });
+    return { courses, errors };
+  },
+
   parseJSON(text) {
     const data = JSON.parse(text);
-    
-    // Handle array of courses
-    if (Array.isArray(data)) {
-      return data.map(c => ({
-        id: State.nextId(),
-        title: c.title || c.name || '',
-        code: c.code || '',
-        unit: String(c.unit || c.units || ''),
-        grade: c.grade || '',
-      }));
-    }
-    
-    // Handle { courses: [...] }
-    if (data.courses && Array.isArray(data.courses)) {
-      return data.courses.map(c => ({
-        id: State.nextId(),
-        title: c.title || '',
-        code: c.code || '',
-        unit: String(c.unit || ''),
-        grade: c.grade || '',
-      }));
-    }
-    
-    throw new Error('Invalid JSON format: expected array or { courses: array }');
+    const list = Array.isArray(data) ? data : data?.courses;
+    if (!Array.isArray(list)) throw new Error('Invalid JSON: expected an array or { "courses": [...] }');
+    const courses = [], errors = [];
+    list.forEach((c, i) => {
+      const res = this._validate({
+        title: c.title ?? c.name, code: c.code, unit: c.unit ?? c.units, grade: c.grade,
+      }, `Item ${i + 1}`);
+      res.error ? errors.push(res.error) : courses.push(res.course);
+    });
+    return { courses, errors };
   },
 
-  /**
-   * Handle file import
-   */
   async handleImport(file) {
     try {
       if (!file) return;
-
       const text = await file.text();
-      let courses = [];
-      
-      if (file.type === 'application/json' || file.name.endsWith('.json')) {
-        courses = this.parseJSON(text);
-      } else {
-        courses = this.parseCSV(text);
+      const isJSON = file.type === 'application/json' || file.name.toLowerCase().endsWith('.json');
+      const { courses, errors } = isJSON ? this.parseJSON(text) : this.parseCSV(text);
+
+      if (errors.length) {
+        console.warn('Import issues:\n' + errors.join('\n'));
+        const shown = errors.slice(0, 2).join(' · ') + (errors.length > 2 ? ` (+${errors.length - 2} more, see console)` : '');
+        UI.toast(`${courses.length} imported, ${errors.length} skipped — ${shown}`, courses.length ? 'info' : 'error');
       }
-      
       if (courses.length === 0) {
-        UI.toast('No courses found in file', 'warning');
+        if (!errors.length) UI.toast('No courses found in file', 'info');
         return;
       }
-      
-      // Save state for undo
+
       UndoManager.saveState();
-      
-      // Add to state
+      // Drop the untouched blank starter row if present
+      State.courses = State.courses.filter(c => c.title || c.unit || c.grade);
       State.courses.push(...courses);
       UI.renderCourseList();
-      Calculator.updateDashboard();
-      
-      UI.toast(`${courses.length} course${courses.length !== 1 ? 's' : ''} imported!`, 'success');
-      
+      UI.updateDashboard();                       // was Calculator.updateDashboard (didn't exist)
+      if (!errors.length) UI.toast(`${courses.length} course${courses.length !== 1 ? 's' : ''} imported!`, 'success');
     } catch (error) {
       console.error('Import error:', error);
       UI.toast(`Import failed: ${error.message}`, 'error');
     }
-  }
+  },
 };
 
 
@@ -607,7 +664,7 @@ const CGPA = {
    */
   calculate() {
     const semesters = Storage.loadSemesters();
-    
+
     if (semesters.length === 0) {
       return { cgpa: 0, count: 0, trend: null };
     }
@@ -619,7 +676,7 @@ const CGPA = {
     semesters.forEach(semester => {
       if (semester.courses && semester.courses.length > 0) {
         const result = Calculator.calculate(semester.courses, semester.scale);
-        
+
         if (result.totalUnits > 0) {
           totalUnits += result.totalUnits;
           totalPoints += result.totalPoints;
@@ -633,15 +690,15 @@ const CGPA = {
     // Determine trend
     let trend = null;
     if (validSemesters > 1) {
-      const recent = semesters.slice(-2);
-      if (recent.length === 2) {
-        const gpa1 = Calculator.calculate(recent[0].courses, recent[0].scale).gpa;
-        const gpa2 = Calculator.calculate(recent[1].courses, recent[1].scale).gpa;
-        
-        if (gpa2 > gpa1 + 0.1) trend = 'improving';
-        else if (gpa2 < gpa1 - 0.1) trend = 'declining';
-        else trend = 'stable';
-      }
+      // Semesters are stored newest-first (Storage.addSemester uses unshift),
+      // so the two most recent are at the START of the array.
+      const [latest, previous] = semesters;
+      const gpaLatest = Calculator.calculate(latest.courses, latest.scale).gpa;
+      const gpaPrevious = Calculator.calculate(previous.courses, previous.scale).gpa;
+
+      if (gpaLatest > gpaPrevious + 0.1) trend = 'improving';
+      else if (gpaLatest < gpaPrevious - 0.1) trend = 'declining';
+      else trend = 'stable';
     }
 
     return { cgpa, count: validSemesters, trend };
@@ -663,7 +720,7 @@ const CGPA = {
         cgpaCount.textContent = 'Save semesters to see CGPA';
       } else {
         cgpaDisplay.textContent = data.cgpa.toFixed(2);
-        
+
         let countText = `${data.count} semester${data.count !== 1 ? 's' : ''}`;
         if (data.trend) {
           const trendEmoji = data.trend === 'improving' ? '📈' : data.trend === 'declining' ? '📉' : '➡️';
@@ -690,8 +747,8 @@ const UI = {
     try {
       const el = this.els.toast;
       if (!el) return;
-      el.textContent     = message;
-      el.className       = `toast show toast-${type}`;
+      el.textContent = message;
+      el.className = `toast show toast-${type}`;
       clearTimeout(this._toastTimer);
       this._toastTimer = setTimeout(() => {
         el.classList.remove('show');
@@ -704,8 +761,8 @@ const UI = {
   /* ── COURSE ROWS ── */
 
   buildCourseRow(course, scale) {
-    const row      = document.createElement('div');
-    row.className  = 'course-row';
+    const row = document.createElement('div');
+    row.className = 'course-row';
     row.dataset.id = course.id;
     row.setAttribute('role', 'listitem');
     row.setAttribute('tabindex', '-1');
@@ -781,9 +838,9 @@ const UI = {
 
   _updateRowGP(row, course, scale) {
     try {
-      const unit   = parseFloat(course.unit);
-      const gp     = Calculator.gradePoint(course.grade, scale);
-      const total  = (unit > 0 && gp !== null) ? (unit * gp).toFixed(2) : null;
+      const unit = parseFloat(course.unit);
+      const gp = Calculator.gradePoint(course.grade, scale);
+      const total = (unit > 0 && gp !== null) ? (unit * gp).toFixed(2) : null;
       const gpCell = row.querySelector('.gp-value');
       if (gpCell) {
         gpCell.textContent = total !== null ? total : '—';
@@ -819,33 +876,33 @@ const UI = {
 
   updateDashboard() {
     try {
-      const result     = Calculator.calculate(State.courses, State.scale);
-      const classInfo  = Calculator.classify(result.gpa, State.scale);
-      const scaleMax   = GRADE_SCALES[State.scale].max;
-      const hasData    = result.validCount > 0;
+      const result = Calculator.calculate(State.courses, State.scale);
+      const classInfo = Calculator.classify(result.gpa, State.scale);
+      const scaleMax = GRADE_SCALES[State.scale].max;
+      const hasData = result.validCount > 0;
 
       this.els.gpaDisplay.textContent = hasData ? result.gpa.toFixed(2) : '—';
 
       /* Ring animation */
-      const pct    = hasData ? Math.min(result.gpa / scaleMax, 1) : 0;
+      const pct = hasData ? Math.min(result.gpa / scaleMax, 1) : 0;
       const offset = RING_CIRCUMFERENCE - pct * RING_CIRCUMFERENCE;
       this.els.ringFill.style.strokeDashoffset = offset;
 
-      this.els.totalUnits.textContent  = result.totalUnits;
+      this.els.totalUnits.textContent = result.totalUnits;
       this.els.totalPoints.textContent = result.totalPoints.toFixed(2);
-      this.els.scaleLabel.textContent  = `/ ${scaleMax}`;
+      this.els.scaleLabel.textContent = `/ ${scaleMax}`;
 
       const badge = this.els.classificationBadge;
-      const desc  = this.els.classDesc;
+      const desc = this.els.classDesc;
 
       if (!hasData || !classInfo) {
         badge.textContent = 'No Data';
-        badge.className   = 'classification-badge no-data';
-        desc.textContent  = 'Add courses to see your classification';
+        badge.className = 'classification-badge no-data';
+        desc.textContent = 'Add courses to see your classification';
       } else {
         badge.textContent = classInfo.label;
-        badge.className   = `classification-badge ${classInfo.cssClass}`;
-        desc.textContent  = classInfo.desc;
+        badge.className = `classification-badge ${classInfo.cssClass}`;
+        desc.textContent = classInfo.desc;
       }
 
       // Update CGPA display
@@ -875,8 +932,8 @@ const UI = {
   renderHistory() {
     try {
       const semesters = Storage.loadSemesters();
-      const list      = this.els.historyList;
-      list.innerHTML  = '';
+      const list = this.els.historyList;
+      list.innerHTML = '';
 
       const hasHistory = semesters.length > 0;
       this.els.historyEmpty.classList.toggle('hidden', hasHistory);
@@ -888,8 +945,8 @@ const UI = {
 
       for (const sem of semesters) {
         const classInfo = Calculator.classify(sem.gpa, sem.scale);
-        const card      = document.createElement('div');
-        card.className  = 'history-card';
+        const card = document.createElement('div');
+        card.className = 'history-card';
         card.dataset.id = sem.id;
         card.setAttribute('role', 'listitem');
 
@@ -927,24 +984,24 @@ const UI = {
   openViewModal(semesterId) {
     try {
       const semesters = Storage.loadSemesters();
-      const sem       = semesters.find(s => s.id === semesterId);
+      const sem = semesters.find(s => s.id === semesterId);
       if (!sem) return;
 
-      const classInfo  = Calculator.classify(sem.gpa, sem.scale);
+      const classInfo = Calculator.classify(sem.gpa, sem.scale);
       const scaleLabel = GRADE_SCALES[sem.scale].label;
 
       this.els.viewModalTitle.textContent = sem.name;
 
       const rows = sem.courses.map(c => {
         const unit = parseFloat(c.unit);
-        const gp   = Calculator.gradePoint(c.grade, sem.scale);
-        const pts  = (unit > 0 && gp !== null) ? (unit * gp).toFixed(2) : '—';
+        const gp = Calculator.gradePoint(c.grade, sem.scale);
+        const pts = (unit > 0 && gp !== null) ? (unit * gp).toFixed(2) : '—';
         return `
           <tr>
             <td>${this._escape(c.title || '—')}</td>
-            <td>${this._escape(c.code  || '—')}</td>
-            <td>${c.unit  || '—'}</td>
-            <td>${c.grade || '—'}</td>
+            <td>${this._escape(c.code || '—')}</td>
+            <td>${this._escape(c.unit || '—')}</td>
+            <td>${this._escape(c.grade || '—')}</td>
             <td>${gp !== null ? gp : '—'}</td>
             <td><strong>${pts}</strong></td>
           </tr>
@@ -1101,21 +1158,21 @@ const Validate = {
 
   allCourses() {
     let allValid = true;
-    const rows   = document.querySelectorAll('.course-row');
+    const rows = document.querySelectorAll('.course-row');
 
     rows.forEach(row => {
       const titleInput = row.querySelector('.course-title');
-      const unitInput  = row.querySelector('.course-unit');
+      const unitInput = row.querySelector('.course-unit');
       const gradeInput = row.querySelector('.course-grade');
 
       const titleVal = titleInput.value;
-      const unitVal  = unitInput.value;
+      const unitVal = unitInput.value;
       const gradeVal = gradeInput.value;
 
       if (!titleVal && !unitVal && !gradeVal) return;
 
       const titleErr = this.title(titleVal);
-      const unitErr  = this.unit(unitVal);
+      const unitErr = this.unit(unitVal);
       const gradeErr = this.grade(gradeVal);
 
       showFieldError(row.querySelector('.course-title + .field-error'), titleErr);
@@ -1152,10 +1209,10 @@ function syncStateFromDOM() {
 
   rows.forEach(row => {
     State.courses.push({
-      id:    row.dataset.id,
+      id: row.dataset.id,
       title: row.querySelector('.course-title')?.value ?? '',
-      code:  row.querySelector('.course-code')?.value  ?? '',
-      unit:  row.querySelector('.course-unit')?.value  ?? '',
+      code: row.querySelector('.course-code')?.value ?? '',
+      unit: row.querySelector('.course-unit')?.value ?? '',
       grade: row.querySelector('.course-grade')?.value ?? '',
     });
   });
@@ -1163,11 +1220,11 @@ function syncStateFromDOM() {
 
 function updateRowGP(row) {
   try {
-    const unit  = parseFloat(row.querySelector('.course-unit')?.value);
+    const unit = parseFloat(row.querySelector('.course-unit')?.value);
     const grade = row.querySelector('.course-grade')?.value;
-    const gp    = Calculator.gradePoint(grade, State.scale);
+    const gp = Calculator.gradePoint(grade, State.scale);
     const total = (unit > 0 && gp !== null) ? (unit * gp).toFixed(2) : null;
-    const cell  = row.querySelector('.gp-value');
+    const cell = row.querySelector('.gp-value');
     if (cell) {
       cell.textContent = total !== null ? total : '—';
       cell.style.color = total !== null ? 'var(--accent)' : 'var(--text-faint)';
@@ -1185,12 +1242,12 @@ function updateRowGP(row) {
 function addCourse() {
   try {
     UndoManager.saveState();
-    
+
     const course = {
-      id:    State.nextId(),
+      id: State.nextId(),
       title: '',
-      code:  '',
-      unit:  '',
+      code: '',
+      unit: '',
       grade: '',
     };
 
@@ -1215,13 +1272,13 @@ function addCourse() {
 function removeCourse(courseId) {
   try {
     UndoManager.saveState();
-    
+
     const row = UI.els.courseList.querySelector(`[data-id="${courseId}"]`);
     if (!row) return;
 
     row.style.transition = 'opacity 0.2s, transform 0.2s';
-    row.style.opacity    = '0';
-    row.style.transform  = 'translateX(20px)';
+    row.style.opacity = '0';
+    row.style.transform = 'translateX(20px)';
 
     setTimeout(() => {
       row.remove();
@@ -1250,8 +1307,8 @@ function resetSemester() {
     document.querySelectorAll('.course-row').forEach((row, i) => {
       setTimeout(() => {
         row.style.transition = 'opacity 0.15s, transform 0.15s';
-        row.style.opacity    = '0';
-        row.style.transform  = 'translateY(-6px)';
+        row.style.opacity = '0';
+        row.style.transform = 'translateY(-6px)';
       }, i * 30);
     });
 
@@ -1276,7 +1333,7 @@ function resetSemester() {
 
 function confirmSave() {
   try {
-    const name  = UI.els.semesterNameInput.value.trim();
+    const name = UI.els.semesterNameInput.value.trim();
     const errEl = UI.els.semesterNameError;
 
     if (!name) {
@@ -1334,6 +1391,55 @@ function wireEvents() {
       UI.openSaveModal();
     });
 
+    /* ── Backup / Restore (#15) ── */
+    let pendingBackup = null;
+    const $ = id => document.getElementById(id);
+    const closeRestore = () => { $('restore-modal').hidden = true; document.body.style.overflow = ''; pendingBackup = null; };
+
+    $('backup-btn').addEventListener('click', () => {
+      if (Storage.loadSemesters().length === 0) return UI.toast('No saved semesters to back up.', 'info');
+      const stamp = new Date().toISOString().slice(0, 10);
+      Export._downloadFile(Storage.buildBackup(), `gpapro-backup-${stamp}.json`, 'application/json');
+      UI.toast('Backup downloaded!', 'success');
+    });
+
+    $('restore-btn').addEventListener('click', () => $('restore-file').click());
+
+    $('restore-file').addEventListener('change', async e => {
+      const file = e.target.files[0]; e.target.value = '';
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const { semesters, skipped } = Storage.parseBackup(text);          // validate before asking
+        if (semesters.length === 0) return UI.toast('That backup has no usable semesters.', 'error');
+        pendingBackup = text;
+        $('restore-summary').textContent =
+          `Found ${semesters.length} semester${semesters.length !== 1 ? 's' : ''}` +
+          (skipped ? ` (${skipped} unreadable, will be skipped)` : '') + '. How should they be restored?';
+        $('restore-modal').hidden = false;
+        document.body.style.overflow = 'hidden';
+      } catch (err) {
+        UI.toast(`Restore failed: ${err.message}`, 'error');
+      }
+    });
+
+    $('restore-cancel').addEventListener('click', closeRestore);
+
+    $('restore-confirm').addEventListener('click', () => {
+      try {
+        const mode = document.querySelector('input[name="restore-mode"]:checked').value;
+        if (mode === 'replace' && !confirm('Replace your entire saved history? This cannot be undone.')) return;
+        const r = Storage.restoreBackup(pendingBackup, mode);
+        closeRestore();
+        UI.renderHistory();
+        CGPA.updateDisplay();
+        UI.toast(mode === 'replace'
+          ? `Restored ${r.added} semester${r.added !== 1 ? 's' : ''}.`
+          : `Added ${r.added}, skipped ${r.duplicates} already present.`, 'success');
+      } catch (err) {
+        UI.toast(`Restore failed: ${err.message}`, 'error');
+      }
+    });
     /* ── Modal buttons ── */
     els.modalConfirm.addEventListener('click', confirmSave);
     els.modalCancel.addEventListener('click', () => UI.closeSaveModal());
@@ -1346,9 +1452,9 @@ function wireEvents() {
     /* ── Rename Modal ── */
     els.renameConfirm.addEventListener('click', () => {
       try {
-        const id      = els.renameModal.dataset.targetId;
+        const id = els.renameModal.dataset.targetId;
         const newName = els.renameInput.value.trim();
-        const errEl   = els.renameError;
+        const errEl = els.renameError;
 
         if (!newName) {
           errEl.textContent = 'Please enter a name';
@@ -1435,7 +1541,7 @@ function wireEvents() {
     /* ── Import CSV/JSON ── */
     const importBtn = document.getElementById('import-btn');
     const importFile = document.getElementById('import-file');
-    
+
     if (importBtn && importFile) {
       importBtn.addEventListener('click', () => importFile.click());
       importFile.addEventListener('change', (e) => {
@@ -1469,7 +1575,7 @@ function wireEvents() {
     els.courseList.addEventListener('input', e => {
       try {
         const target = e.target;
-        const row    = target.closest('.course-row');
+        const row = target.closest('.course-row');
         if (!row) return;
 
         const errEl = target.nextElementSibling;
@@ -1521,7 +1627,7 @@ function wireEvents() {
         } else if (btn.dataset.action === 'rename') {
           UI.openRenameModal(id);
         } else if (btn.dataset.action === 'delete') {
-          const sems   = Storage.loadSemesters();
+          const sems = Storage.loadSemesters();
           const target = sems.find(s => s.id === id);
           if (target && confirm(`Delete "${target.name}"?`)) {
             Storage.deleteSemester(id);
@@ -1621,49 +1727,49 @@ const App = {
     try {
       /* ── Cache DOM elements ── */
       UI.els = {
-        gradingScale:      document.getElementById('grading-scale'),
-        themeToggle:       document.getElementById('theme-toggle'),
+        gradingScale: document.getElementById('grading-scale'),
+        themeToggle: document.getElementById('theme-toggle'),
 
-        gpaDisplay:        document.getElementById('gpa-display'),
-        ringFill:          document.getElementById('ring-fill'),
-        scaleLabel:        document.getElementById('scale-label'),
-        totalUnits:        document.getElementById('total-units'),
-        totalPoints:       document.getElementById('total-points'),
+        gpaDisplay: document.getElementById('gpa-display'),
+        ringFill: document.getElementById('ring-fill'),
+        scaleLabel: document.getElementById('scale-label'),
+        totalUnits: document.getElementById('total-units'),
+        totalPoints: document.getElementById('total-points'),
         classificationBadge: document.getElementById('classification-badge'),
-        classDesc:         document.getElementById('class-desc'),
+        classDesc: document.getElementById('class-desc'),
 
-        addCourseBtn:      document.getElementById('add-course-btn'),
-        courseList:        document.getElementById('course-list'),
-        courseCount:       document.getElementById('course-count'),
-        emptyState:        document.getElementById('empty-state'),
-        resetBtn:          document.getElementById('reset-btn'),
-        saveBtn:           document.getElementById('save-btn'),
-        exportCSVBtn:      document.getElementById('export-csv-btn'),
-        exportPDFBtn:      document.getElementById('export-pdf-btn'),
+        addCourseBtn: document.getElementById('add-course-btn'),
+        courseList: document.getElementById('course-list'),
+        courseCount: document.getElementById('course-count'),
+        emptyState: document.getElementById('empty-state'),
+        resetBtn: document.getElementById('reset-btn'),
+        saveBtn: document.getElementById('save-btn'),
+        exportCSVBtn: document.getElementById('export-csv-btn'),
+        exportPDFBtn: document.getElementById('export-pdf-btn'),
 
-        saveModal:         document.getElementById('save-modal'),
+        saveModal: document.getElementById('save-modal'),
         semesterNameInput: document.getElementById('semester-name-input'),
         semesterNameError: document.getElementById('semester-name-error'),
-        modalConfirm:      document.getElementById('modal-confirm'),
-        modalCancel:       document.getElementById('modal-cancel'),
+        modalConfirm: document.getElementById('modal-confirm'),
+        modalCancel: document.getElementById('modal-cancel'),
 
-        viewModal:         document.getElementById('view-modal'),
-        viewModalTitle:    document.getElementById('view-modal-title'),
-        viewModalBody:     document.getElementById('view-modal-body'),
-        viewModalClose:    document.getElementById('view-modal-close'),
+        viewModal: document.getElementById('view-modal'),
+        viewModalTitle: document.getElementById('view-modal-title'),
+        viewModalBody: document.getElementById('view-modal-body'),
+        viewModalClose: document.getElementById('view-modal-close'),
 
-        renameModal:       document.getElementById('rename-modal'),
-        renameInput:       document.getElementById('rename-input'),
-        renameError:       document.getElementById('rename-error'),
-        renameConfirm:     document.getElementById('rename-confirm'),
-        renameCancel:      document.getElementById('rename-cancel'),
+        renameModal: document.getElementById('rename-modal'),
+        renameInput: document.getElementById('rename-input'),
+        renameError: document.getElementById('rename-error'),
+        renameConfirm: document.getElementById('rename-confirm'),
+        renameCancel: document.getElementById('rename-cancel'),
 
-        historyList:       document.getElementById('history-list'),
-        historyEmpty:      document.getElementById('history-empty'),
-        historyCount:      document.getElementById('history-count'),
-        clearHistoryBtn:   document.getElementById('clear-history-btn'),
+        historyList: document.getElementById('history-list'),
+        historyEmpty: document.getElementById('history-empty'),
+        historyCount: document.getElementById('history-count'),
+        clearHistoryBtn: document.getElementById('clear-history-btn'),
 
-        toast:             document.getElementById('toast'),
+        toast: document.getElementById('toast'),
       };
 
       /* ── Restore preferences ── */
@@ -1671,12 +1777,12 @@ const App = {
       const savedScale = Storage.loadScale();
 
       UI.applyTheme(savedTheme);
-      State.scale                         = savedScale;
-      UI.els.gradingScale.value           = savedScale;
-      UI.els.scaleLabel.textContent       = `/ ${GRADE_SCALES[savedScale].max}`;
+      State.scale = savedScale;
+      UI.els.gradingScale.value = savedScale;
+      UI.els.scaleLabel.textContent = `/ ${GRADE_SCALES[savedScale].max}`;
       UI.els.ringFill.style.strokeDasharray = RING_CIRCUMFERENCE;
       UI.els.ringFill.style.strokeDashoffset = RING_CIRCUMFERENCE;
-      
+
       // Add SVG animation CSS
       UI.els.ringFill.style.transition = 'stroke-dashoffset 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)';
       UI.els.ringFill.style.willChange = 'stroke-dashoffset';
