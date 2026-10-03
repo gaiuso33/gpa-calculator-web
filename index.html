@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,15 +8,15 @@
   <title>GPA Calculator Pro</title>
 
   <!-- Google Fonts: Sora (headings) + Plus Jakarta Sans (body) -->
- <link rel="stylesheet" href="css/fonts.css" />
-<link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/fonts.css" />
+  <link rel="stylesheet" href="css/style.css" />
 
   <link rel="stylesheet" href="css/style.css" />
   <link rel="manifest" href="manifest.webmanifest" />
-<meta name="theme-color" content="#080c18" />
-<link rel="icon" type="image/png" href="icons/icon-192.png" />
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
-  
+  <meta name="theme-color" content="#080c18" />
+  <link rel="icon" type="image/png" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+
   <!-- SVG Ring Animation CSS -->
   <style>
     .gpa-ring .ring-fill {
@@ -31,12 +32,14 @@
 
       <div class="logo">
         <svg class="logo-hex" viewBox="0 0 40 46" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M20 1L38 11.5V34.5L20 45L2 34.5V11.5L20 1Z" stroke="currentColor" stroke-width="2"/>
-          <text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">GP</text>
+          <path d="M20 1L38 11.5V34.5L20 45L2 34.5V11.5L20 1Z" stroke="currentColor" stroke-width="2" />
+          <text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="14" font-weight="700"
+            fill="currentColor">GP</text>
         </svg>
         <span class="logo-text">GPA<strong>Pro</strong></span>
       </div>
-
+      <button class="theme-toggle" id="scale-manage" aria-label="Create or edit grading scales"
+        title="Create or edit grading scales">⚙</button>
       <div class="header-controls">
         <!-- Grading Scale Selector -->
         <div class="scale-pill">
@@ -46,6 +49,7 @@
             <option value="4.0">4.0 Scale</option>
           </select>
         </div>
+
         <button class="btn btn-outline btn-sm" id="install-btn" hidden>⬇ Install</button>
         <!-- Dark/Light Toggle -->
         <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark/light mode" title="Toggle theme">
@@ -70,7 +74,7 @@
       <div class="stat-card gpa-card">
         <div class="gpa-ring-wrap">
           <svg class="gpa-ring" viewBox="0 0 120 120">
-            <circle class="ring-bg"  cx="60" cy="60" r="52" />
+            <circle class="ring-bg" cx="60" cy="60" r="52" />
             <circle class="ring-fill" id="ring-fill" cx="60" cy="60" r="52" />
           </svg>
           <div class="gpa-ring-text">
@@ -92,7 +96,8 @@
           </div>
         </div>
         <div class="stat-label">Cumulative GPA</div>
-        <p class="class-desc" id="cgpa-count" style="text-align: center; margin-top: 8px; font-size: 0.85rem;">Save semesters to see CGPA</p>
+        <p class="class-desc" id="cgpa-count" style="text-align: center; margin-top: 8px; font-size: 0.85rem;">Save
+          semesters to see CGPA</p>
       </div>
 
       <!-- Classification Card -->
@@ -128,6 +133,14 @@
           <span class="course-count" id="course-count">0 courses</span>
         </div>
         <div style="display: flex; gap: 8px;">
+          <label class="scale-pill" style="padding:3px 10px">
+            <span class="scale-label" style="display:inline">Retakes</span>
+            <select id="repeat-rule" class="scale-select" aria-label="How to count repeated courses">
+              <option value="all">Count all</option>
+              <option value="latest">Latest only</option>
+              <option value="best">Best only</option>
+            </select>
+          </label>
           <button class="btn btn-outline btn-sm" id="import-btn" aria-label="Import courses from CSV or JSON">
             <span aria-hidden="true">📥</span> Import
           </button>
@@ -159,8 +172,11 @@
       <div class="empty-state" id="empty-state" aria-live="polite">
         <span class="empty-icon" aria-hidden="true">📚</span>
         <p class="empty-title">No courses yet</p>
-        <p class="empty-sub">Click <strong>Add Course</strong> or <strong>Import</strong> to get started tracking your semester</p>
+        <p class="empty-sub">Click <strong>Add Course</strong> or <strong>Import</strong> to get started tracking your
+          semester</p>
       </div>
+
+      <p id="repeat-note" class="planner-note"></p>
 
       <!-- Action Bar -->
       <div class="action-bar">
@@ -182,20 +198,21 @@
 
     </section>
 
-<section class="calculator-section planner-section" aria-label="Target planner">
-  <div class="section-header">
-    <div>
-      <h2 class="section-title">🎯 Target Planner</h2>
-      <span class="course-count">Uses your saved history + the courses listed above</span>
-    </div>
-  </div>
-  <div class="planner-form">
-    <select id="planner-class" class="modal-input" aria-label="Target class"></select>
-    <input id="planner-target" class="modal-input" type="number" step="0.01" min="0.1" placeholder="or custom target GPA" aria-label="Custom target GPA" />
-    <button class="btn btn-primary" id="planner-run">Plan it</button>
-  </div>
-  <div id="planner-result" class="planner-result" aria-live="polite"></div>
-</section>
+    <section class="calculator-section planner-section" aria-label="Target planner">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">🎯 Target Planner</h2>
+          <span class="course-count">Uses your saved history + the courses listed above</span>
+        </div>
+      </div>
+      <div class="planner-form">
+        <select id="planner-class" class="modal-input" aria-label="Target class"></select>
+        <input id="planner-target" class="modal-input" type="number" step="0.01" min="0.1"
+          placeholder="or custom target GPA" aria-label="Custom target GPA" />
+        <button class="btn btn-primary" id="planner-run">Plan it</button>
+      </div>
+      <div id="planner-result" class="planner-result" aria-live="polite"></div>
+    </section>
 
     <!-- ── Semester History ── -->
     <section class="history-section" id="history-section" aria-label="Saved semesters">
@@ -208,7 +225,8 @@
         <div style="display:flex; gap:8px;">
           <button class="btn btn-outline btn-sm" id="backup-btn">⬇ Backup</button>
           <button class="btn btn-outline btn-sm" id="restore-btn">⬆ Restore</button>
-          <button class="btn btn-danger-ghost btn-sm" id="clear-history-btn" title="Delete all saved semesters">Clear All</button>
+          <button class="btn btn-danger-ghost btn-sm" id="clear-history-btn" title="Delete all saved semesters">Clear
+            All</button>
         </div>
         <input type="file" id="restore-file" accept=".json,application/json" hidden />
       </div>
@@ -236,14 +254,8 @@
       <h3 class="modal-title" id="save-modal-title">💾 Save Semester</h3>
       <p class="modal-desc">Give this semester a name (e.g. "200L First Semester").</p>
       <div class="form-group">
-        <input
-          type="text"
-          id="semester-name-input"
-          class="modal-input"
-          placeholder="Semester name…"
-          maxlength="60"
-          autocomplete="off"
-        />
+        <input type="text" id="semester-name-input" class="modal-input" placeholder="Semester name…" maxlength="60"
+          autocomplete="off" />
         <span class="field-error" id="semester-name-error" role="alert"></span>
       </div>
       <div class="modal-actions">
@@ -273,18 +285,13 @@
   <!-- ===========================
        RENAME MODAL
   ============================ -->
-  <div class="modal-overlay" id="rename-modal" role="dialog" aria-modal="true" aria-labelledby="rename-modal-title" hidden>
+  <div class="modal-overlay" id="rename-modal" role="dialog" aria-modal="true" aria-labelledby="rename-modal-title"
+    hidden>
     <div class="modal">
       <h3 class="modal-title" id="rename-modal-title">✏️ Rename Semester</h3>
       <div class="form-group">
-        <input
-          type="text"
-          id="rename-input"
-          class="modal-input"
-          placeholder="New semester name…"
-          maxlength="60"
-          autocomplete="off"
-        />
+        <input type="text" id="rename-input" class="modal-input" placeholder="New semester name…" maxlength="60"
+          autocomplete="off" />
         <span class="field-error" id="rename-error" role="alert"></span>
       </div>
       <div class="modal-actions">
@@ -293,26 +300,54 @@
       </div>
     </div>
   </div>
+  <!-- ===========================
+       RESTORE MODAL
+  ============================ -->
 
 
-  <div class="modal-overlay" id="restore-modal" role="dialog" aria-modal="true" aria-labelledby="restore-modal-title" hidden>
-  <div class="modal">
-    <h3 class="modal-title" id="restore-modal-title">⬆ Restore Backup</h3>
-    <p class="modal-desc" id="restore-summary"></p>
-    <label style="display:block; margin-bottom:8px;">
-      <input type="radio" name="restore-mode" value="merge" checked> <strong>Merge</strong> — keep current history, add missing semesters
-    </label>
-    <label style="display:block;">
-      <input type="radio" name="restore-mode" value="replace"> <strong>Replace</strong> — discard current history
-    </label>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" id="restore-cancel">Cancel</button>
-      <button class="btn btn-primary" id="restore-confirm">Restore</button>
+  <div class="modal-overlay" id="restore-modal" role="dialog" aria-modal="true" aria-labelledby="restore-modal-title"
+    hidden>
+    <div class="modal">
+      <h3 class="modal-title" id="restore-modal-title">⬆ Restore Backup</h3>
+      <p class="modal-desc" id="restore-summary"></p>
+      <label style="display:block; margin-bottom:8px;">
+        <input type="radio" name="restore-mode" value="merge" checked> <strong>Merge</strong> — keep current history,
+        add missing semesters
+      </label>
+      <label style="display:block;">
+        <input type="radio" name="restore-mode" value="replace"> <strong>Replace</strong> — discard current history
+      </label>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="restore-cancel">Cancel</button>
+        <button class="btn btn-primary" id="restore-confirm">Restore</button>
+      </div>
     </div>
   </div>
+  <!-- ===========================
+       SCALE MODAL
+  ============================ -->
+
+  <div class="modal-overlay" id="scale-modal" role="dialog" aria-modal="true" aria-labelledby="scale-modal-title"
+    hidden>
+    <div class="modal modal-wide">
+      <h3 class="modal-title" id="scale-modal-title">⚙ Grading Scale</h3>
+      <p class="modal-desc" id="scale-modal-desc"></p>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <input id="scale-name" class="modal-input" style="flex:2 1 180px" maxlength="24"
+          placeholder="Scale name, e.g. My University" aria-label="Scale name" />
+        <select id="scale-preset" class="modal-input" style="flex:1 1 140px" aria-label="Start from"></select>
+      </div>
+      <div id="scale-rows" class="scale-rows"></div>
+      <button class="btn btn-outline btn-sm" id="scale-add-row" type="button">＋ Add grade</button>
+      <span class="field-error" id="scale-error" role="alert"></span>
+      <div class="modal-actions">
+        <button class="btn btn-danger-ghost" id="scale-delete" hidden>Delete</button>
+        <button class="btn btn-ghost" id="scale-duplicate" hidden>Duplicate</button>
+        <button class="btn btn-ghost" id="scale-cancel">Cancel</button>
+        <button class="btn btn-primary" id="scale-save">Save scale</button>
+      </div>
+    </div>
   </div>
-
-
   <!-- Toast Notification -->
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -337,5 +372,5 @@
   </script>
   <script src="js/pwa.js"></script>
 </body>
-</html>
 
+</html>

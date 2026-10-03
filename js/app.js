@@ -95,6 +95,7 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * 52;
 const State = {
   courses: [],
   scale: '5.0',
+  repeatRule: 'all',
   theme: 'dark',
   _idCounter: 0,
 
@@ -121,7 +122,43 @@ const Calculator = {
     return unit * gp;
   },
 
-  calculate(courses, scale) {
+  _isValid(c, scale) {
+    const u = parseFloat(c.unit);
+    return !!c.grade && !isNaN(u) && u > 0 && this.gradePoint(c.grade, scale) !== null;
+  },
+
+  /** rule: 'all' (default) | 'latest' | 'best'. Retakes are matched by course code, case-insensitively. */
+  resolveRepeats(courses, scale, rule = 'all') {
+    if (rule !== 'latest' && rule !== 'best') return courses;
+    const key = c => String(c.code ?? '').trim().toLowerCase();
+    const winner = new Map();                                    // code → index of the attempt that counts
+    courses.forEach((c, i) => {
+      const k = key(c);
+      if (!k || !this._isValid(c, scale)) return;                // blank/invalid retakes never replace a real grade
+      const cur = winner.get(k);
+      if (cur === undefined || rule === 'latest' ||
+        this.gradePoint(c.grade, scale) >= this.gradePoint(courses[cur].grade, scale)) winner.set(k, i);
+    });
+    const keep = new Set(winner.values());
+    return courses.filter((c, i) => !key(c) || !this._isValid(c, scale) || keep.has(i));
+  },
+
+  /** How many valid attempts the rule leaves out (for the "n repeats not counted" note). */
+  repeatsIgnored(courses, scale, rule = 'all') {
+    const count = list => list.filter(c => this._isValid(c, scale)).length;
+    return count(courses) - count(this.resolveRepeats(courses, scale, rule));
+  },
+
+  /** Units/points of the semesters on `scale`, pooled oldest-first (storage is newest-first),
+      with the repeat rule applied ACROSS semesters so a resit replaces the earlier attempt. */
+  pool(semesters, scale, rule = 'all') {
+    const flat = [...semesters].reverse().filter(s => s.scale === scale).flatMap(s => s.courses || []);
+    const r = this.calculate(flat, scale, rule);
+    return { units: r.totalUnits, points: r.totalPoints };
+  },
+
+  calculate(courses, scale, rule = 'all') {
+    courses = this.resolveRepeats(courses, scale, rule);         // ← the only new line; rest is unchanged
     let totalPoints = 0;
     let totalUnits = 0;
     let validCount = 0;
@@ -129,16 +166,13 @@ const Calculator = {
     for (const course of courses) {
       const unit = parseFloat(course.unit);
       const gp = this.gradePoint(course.grade, scale);
-
       if (!course.grade || isNaN(unit) || unit <= 0 || gp === null) continue;
-
       totalPoints += unit * gp;
       totalUnits += unit;
       validCount += 1;
     }
 
     const gpa = totalUnits > 0 ? totalPoints / totalUnits : 0;
-
     return {
       gpa: Math.round(gpa * 100) / 100,
       totalUnits,
@@ -146,6 +180,7 @@ const Calculator = {
       validCount,
     };
   },
+
 
   classify(gpa, scale) {
     if (gpa <= 0 && State.courses.filter(c => c.grade && parseFloat(c.unit) > 0).length === 0) {
@@ -171,26 +206,58 @@ const Storage = {
       return [];
     }
   },
+  saveRepeatRule(rule) {
+    try { localStorage.setItem('gpapro_repeat_rule', rule); } catch (err) { console.warn('Could not save repeat rule', err); }
+  },
+
+  loadRepeatRule() {
+    try {
+      const v = localStorage.getItem('gpapro_repeat_rule');
+      return (v === 'latest' || v === 'best') ? v : 'all';
+    } catch { return 'all'; }
+  },
+  /* ── Backup / restore (#15, extended for custom scales in #19) ──
+   Replace buildBackup, parseBackup, mergeSemesters and restoreBackup in your Storage object with these. */
 
   buildBackup() {
     return JSON.stringify({
       app: 'gpapro', version: 1,
       exportedAt: new Date().toISOString(),
       semesters: this.loadSemesters(),
+      customScales: Scales.listCustom(),          // so restored semesters keep their grading scale
     }, null, 2);
   },
 
+  /** Validates a backup and returns what WOULD be restored. Has no side effects (safe for previews). */
   parseBackup(text) {
     let data;
     try { data = JSON.parse(text); } catch { throw new Error('File is not valid JSON'); }
     if (!data || data.app !== 'gpapro' || !Array.isArray(data.semesters)) throw new Error('Not a GPA Pro backup file');
     if (data.version > 1) throw new Error('Backup was made by a newer version of GPA Pro');
 
+    // Scales defined inside the file, validated but NOT registered yet
+    const fileScales = (Array.isArray(data.customScales) ? data.customScales : [])
+      .map(d => Scales.validate(d, { requireId: true })).filter(v => v.ok).map(v => v.clean);
+    const tableOf = id => GRADE_SCALES[id] || fileScales.find(d => d.id === id);
+
+    // Totals computed against the scale's own table, so a scale we have not registered yet still works
+    const totals = (courses, table) => {
+      let units = 0, points = 0, valid = 0;
+      for (const c of courses) {
+        const u = parseFloat(c.unit);
+        if (!c.grade || isNaN(u) || u <= 0 || !Object.hasOwn(table.grades, c.grade)) continue;
+        units += u; points += u * table.grades[c.grade]; valid++;
+      }
+      const r2 = x => Math.round((x + 1e-9) * 100) / 100;
+      return { gpa: units > 0 ? r2(points / units) : 0, totalUnits: units, totalPoints: r2(points), validCount: valid };
+    };
+
     const semesters = []; let skipped = 0;
     data.semesters.forEach((s, i) => {
       const name = typeof s?.name === 'string' ? s.name.trim().slice(0, 60) : '';
-      if (!name || !GRADE_SCALES[s.scale] || !Array.isArray(s.courses)) { skipped++; return; }
-      const scale = s.scale;
+      const table = tableOf(s?.scale);
+      if (!name || !table || !Array.isArray(s.courses)) { skipped++; return; }
+
       const courses = s.courses.map(c => {
         const g = String(c?.grade ?? '').toUpperCase();
         const n = parseFloat(c?.unit);
@@ -199,19 +266,22 @@ const Storage = {
           title: String(c?.title ?? '').slice(0, 100),
           code: String(c?.code ?? '').slice(0, 20),
           unit: (isFinite(n) && n > 0 && n <= 50) ? String(n) : '',
-          grade: (g in GRADE_SCALES[scale].grades) ? g : '',
+          grade: Object.hasOwn(table.grades, g) ? g : '',
         };
       });
-      const r = Calculator.calculate(courses, scale);      // recompute, never trust file totals
+
+      const r = totals(courses, table);             // recompute; never trust totals in the file
       if (r.validCount === 0) { skipped++; return; }
       const d = new Date(s.savedAt);
       semesters.push({
         id: (typeof s.id === 'string' && /^[\w-]+$/.test(s.id)) ? s.id : `sem_${Date.now()}_${i}`,
-        name, scale, gpa: r.gpa, totalUnits: r.totalUnits, totalPoints: r.totalPoints, courses,
+        name, scale: s.scale, gpa: r.gpa, totalUnits: r.totalUnits, totalPoints: r.totalPoints, courses,
         savedAt: isNaN(d) ? new Date().toISOString() : d.toISOString(),
       });
     });
-    return { semesters, skipped };
+
+    const usedScales = new Set(semesters.map(s => s.scale));
+    return { semesters, skipped, customScales: fileScales.filter(d => usedScales.has(d.id)) };
   },
 
   mergeSemesters(existing, incoming) {
@@ -222,12 +292,14 @@ const Storage = {
   },
 
   restoreBackup(text, mode) {
-    const { semesters, skipped } = this.parseBackup(text);
+    const { semesters, skipped, customScales } = this.parseBackup(text);
+    Scales.importDefs(customScales);                // register the scales these semesters need
     if (mode === 'replace') { this.saveSemesters(semesters); return { added: semesters.length, duplicates: 0, skipped }; }
     const m = this.mergeSemesters(this.loadSemesters(), semesters);
     this.saveSemesters(m.semesters);
     return { added: m.added, duplicates: m.duplicates, skipped };
   },
+
 
   saveSemesters(semesters) {
     try {
@@ -659,49 +731,24 @@ const UndoManager = {
    ============================================================ */
 
 const CGPA = {
-  /**
-   * Calculate cumulative GPA across all saved semesters
-   */
-  calculate() {
-    const semesters = Storage.loadSemesters();
+  /** CGPA over saved semesters on ONE scale (4.0 and 5.0 points are never mixed). */
+  calculate(scale = State.scale, rule = State.repeatRule) {
+    const sems = Storage.loadSemesters().filter(s => s.scale === scale);      // newest-first
+    const perSem = sems.map(s => Calculator.calculate(s.courses || [], scale)).filter(r => r.totalUnits > 0);
+    if (perSem.length === 0) return { cgpa: 0, count: 0, trend: null };
 
-    if (semesters.length === 0) {
-      return { cgpa: 0, count: 0, trend: null };
-    }
+    const pooled = Calculator.pool(sems, scale, rule);
+    const cgpa = pooled.units > 0 ? pooled.points / pooled.units : 0;
 
-    let totalUnits = 0;
-    let totalPoints = 0;
-    let validSemesters = 0;
-
-    semesters.forEach(semester => {
-      if (semester.courses && semester.courses.length > 0) {
-        const result = Calculator.calculate(semester.courses, semester.scale);
-
-        if (result.totalUnits > 0) {
-          totalUnits += result.totalUnits;
-          totalPoints += result.totalPoints;
-          validSemesters += 1;
-        }
-      }
-    });
-
-    const cgpa = totalUnits > 0 ? (totalPoints / totalUnits) : 0;
-
-    // Determine trend
     let trend = null;
-    if (validSemesters > 1) {
-      // Semesters are stored newest-first (Storage.addSemester uses unshift),
-      // so the two most recent are at the START of the array.
-      const [latest, previous] = semesters;
-      const gpaLatest = Calculator.calculate(latest.courses, latest.scale).gpa;
-      const gpaPrevious = Calculator.calculate(previous.courses, previous.scale).gpa;
-
-      if (gpaLatest > gpaPrevious + 0.1) trend = 'improving';
-      else if (gpaLatest < gpaPrevious - 0.1) trend = 'declining';
-      else trend = 'stable';
+    if (perSem.length > 1) {
+      const [latest, previous] = perSem.map(r => r.gpa);
+      trend = latest > previous + 0.1 ? 'improving' : latest < previous - 0.1 ? 'declining' : 'stable';
     }
-
-    return { cgpa, count: validSemesters, trend };
+    return { cgpa, count: perSem.length, trend };
+  },
+  otherScaleCount(scale = State.scale) {
+    return Storage.loadSemesters().filter(s => s.scale !== scale).length;
   },
 
   /**
@@ -742,19 +789,15 @@ const CGPA = {
 
 const Planner = {
   /** Units/points already banked in saved semesters on the given scale. */
-  standing(semesters, scale) {
-    let units = 0, points = 0, used = 0, ignored = 0;
-    for (const s of semesters) {
-      if (s.scale !== scale) { ignored++; continue; }          // never mix 4.0 and 5.0 points
-      const r = Calculator.calculate(s.courses || [], scale);
-      if (r.totalUnits > 0) { units += r.totalUnits; points += r.totalPoints; used++; }
-    }
+  standing(semesters, scale, rule = 'all') {
+    const same = semesters.filter(s => s.scale === scale);
+    const used = same.filter(s => Calculator.calculate(s.courses || [], scale).totalUnits > 0).length;
+    const { units, points } = Calculator.pool(same, scale, rule);
     return {
-      units, points, used, ignored,
+      units, points, used, ignored: semesters.length - same.length,
       cgpa: units > 0 ? Math.round((points / units) * 100) / 100 : null,
     };
   },
-
   /** Class thresholds for the scale, best first: [{ label, min }] */
   classTargets(scale) {
     return (CLASSIFICATIONS[scale] ?? []).map(r => ({ label: r.label, min: r.min }));
@@ -857,6 +900,170 @@ const Planner = {
   },
 };
 
+/* ============================================================
+   SCALES MODULE — plus/minus + custom grading scales (Jira #19)
+   Paste into js/app.js right after the Planner module.
+   Registers extra scales INTO the existing GRADE_SCALES and
+   CLASSIFICATIONS objects, so all existing code keeps working.
+   ============================================================ */
+
+const Scales = {
+  KEY: 'gpapro_custom_scales',
+  MAX_CUSTOM: 10,
+  _fractions: [0.9, 0.7, 0.48, 0.3, 0.2],       // class boundaries as a share of the scale maximum (= the 5.0 bands)
+
+  buildOptions(grades) {
+    return Object.entries(grades)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([g, p]) => ({ value: g, label: `${g} — ${p}` }));
+  },
+
+  /** Class bands for any maximum, using the same proportions as the built-in 5.0 scale. */
+  deriveBands(max) {
+    const r2 = x => Math.round(x * 100) / 100;
+    const mins = [...this._fractions.map(f => r2(max * f)), 0];
+    return CLASSIFICATIONS['5.0'].map((t, i) => ({
+      min: mins[i],
+      max: i === 0 ? max : r2(mins[i - 1] - 0.01),
+      label: t.label, cssClass: t.cssClass, desc: t.desc,
+    }));
+  },
+
+  /** Validate a user/imported definition. Returns { ok, error } or { ok, clean }. */
+  validate(def, { requireId = false } = {}) {
+    const fail = error => ({ ok: false, error });
+    const label = String(def?.label ?? '').replace(/[\u0000-\u001f<>]/g, '').trim();
+    if (label.length < 1 || label.length > 24) return fail('Scale name must be 1–24 characters');
+
+    const entries = Object.entries(def?.grades ?? {});
+    if (entries.length < 2 || entries.length > 20) return fail('A scale needs between 2 and 20 grades');
+
+    const grades = {};
+    for (const [rawLabel, rawPts] of entries) {
+      const g = String(rawLabel).trim().toUpperCase();
+      if (!/^[A-Z][A-Z0-9+\-]{0,3}$/.test(g)) return fail(`Grade "${rawLabel}" is not valid (use 1–4 characters like A, B+, C-)`);
+      if (Object.hasOwn(grades, g)) return fail(`Grade "${g}" appears twice`);
+      const p = typeof rawPts === 'number' ? rawPts : parseFloat(rawPts);
+      if (!isFinite(p) || p < 0 || p > 20) return fail(`Points for ${g} must be between 0 and 20`);
+      if (Math.round(p * 100) / 100 !== p) return fail(`Points for ${g} can have at most 2 decimals`);
+      grades[g] = p;
+    }
+    const max = Math.max(...Object.values(grades));
+    if (max < 1) return fail('The highest grade must be worth at least 1 point');
+
+    let id = String(def?.id ?? '');
+    if (!/^custom_[a-z0-9]{4,20}$/.test(id)) {
+      if (requireId) return fail('Missing or invalid scale id');
+      id = 'custom_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    }
+    return { ok: true, clean: { id, label, max, grades } };
+  },
+
+  register(def, builtin = false, bands = null) {
+    GRADE_SCALES[def.id] = {
+      label: def.label, max: def.max, grades: { ...def.grades },
+      options: this.buildOptions(def.grades), custom: !builtin,
+    };
+    CLASSIFICATIONS[def.id] = bands || this.deriveBands(def.max);
+  },
+
+  registerBuiltIns() {
+    this.register({
+      id: '4.0pm', label: '4.0 ±', max: 4,
+      grades: { A: 4, 'A-': 3.7, 'B+': 3.3, B: 3, 'B-': 2.7, 'C+': 2.3, C: 2, 'C-': 1.7, 'D+': 1.3, D: 1, F: 0 },
+    }, true, CLASSIFICATIONS['4.0']);
+  },
+
+  isCustom: id => !!GRADE_SCALES[id]?.custom,
+
+  listCustom() {
+    return Object.entries(GRADE_SCALES).filter(([, s]) => s.custom)
+      .map(([id, s]) => ({ id, label: s.label, grades: { ...s.grades } }));
+  },
+
+  usage: (id, semesters) => semesters.filter(s => s.scale === id).length,
+
+  _persist() {
+    try { localStorage.setItem(this.KEY, JSON.stringify(this.listCustom())); }
+    catch (err) { console.warn('Could not save custom scales', err); }
+  },
+
+  /** Call once at startup, before restoring the selected scale. */
+  loadCustom() {
+    try {
+      const list = JSON.parse(localStorage.getItem(this.KEY) || '[]');
+      for (const d of Array.isArray(list) ? list : []) {
+        const v = this.validate(d, { requireId: true });
+        if (v.ok && !GRADE_SCALES[v.clean.id]) this.register(v.clean);
+      }
+    } catch (err) { console.warn('Could not load custom scales', err); }
+    return this.listCustom();
+  },
+
+  /** Create (no id) or edit (existing custom id). Grades are locked once a saved semester uses the scale. */
+  save(def, semesters = []) {
+    if (def?.id && GRADE_SCALES[def.id] && !GRADE_SCALES[def.id].custom) {
+      return { ok: false, error: 'Built-in scales cannot be changed' };
+    }
+    const v = this.validate(def);
+    if (!v.ok) return v;
+    const c = v.clean;
+    const existing = GRADE_SCALES[c.id];
+    if (existing && !existing.custom) return { ok: false, error: 'Built-in scales cannot be changed' };
+
+    if (existing) {
+      const used = this.usage(c.id, semesters);
+      const norm = g => JSON.stringify(Object.entries(g).sort((a, b) => a[0].localeCompare(b[0])));
+      if (used > 0 && norm(existing.grades) !== norm(c.grades)) {
+        return { ok: false, error: `Used by ${used} saved semester${used !== 1 ? 's' : ''}. Rename it, or duplicate it to change grades or points.` };
+      }
+    } else if (this.listCustom().length >= this.MAX_CUSTOM) {
+      return { ok: false, error: `You can keep up to ${this.MAX_CUSTOM} custom scales` };
+    }
+    this.register(c);
+    this._persist();
+    return { ok: true, id: c.id };
+  },
+
+  remove(id, semesters = []) {
+    if (!this.isCustom(id)) return { ok: false, error: 'Only custom scales can be deleted' };
+    const used = this.usage(id, semesters);
+    if (used > 0) return { ok: false, error: `Used by ${used} saved semester${used !== 1 ? 's' : ''}. Delete those first.` };
+    delete GRADE_SCALES[id];
+    delete CLASSIFICATIONS[id];
+    this._persist();
+    return { ok: true };
+  },
+
+  /** Register definitions from a backup file; skips invalid ones, existing ids and anything over the cap. */
+  importDefs(defs) {
+    let added = 0;
+    for (const d of Array.isArray(defs) ? defs : []) {
+      const v = this.validate(d, { requireId: true });
+      if (!v.ok || GRADE_SCALES[v.clean.id] || this.listCustom().length >= this.MAX_CUSTOM) continue;
+      this.register(v.clean);
+      added++;
+    }
+    if (added) this._persist();
+    return added;
+  },
+
+  /** After switching scale: keep grades that exist, map A-/B+ to A/B, clear the rest. */
+  reconcileGrades(courses, scale) {
+    const table = GRADE_SCALES[scale]?.grades ?? {};
+    let cleared = 0, mapped = 0;
+    const out = courses.map(c => {
+      if (!c.grade || Object.hasOwn(table, c.grade)) return c;
+      const base = c.grade.replace(/[+-]$/, '');
+      if (base !== c.grade && Object.hasOwn(table, base)) { mapped++; return { ...c, grade: base }; }
+      cleared++;
+      return { ...c, grade: '' };
+    });
+    return { courses: out, cleared, mapped };
+  },
+};
+
+Scales.registerBuiltIns();
 
 /* ============================================================
    9. UI MODULE
@@ -881,6 +1088,12 @@ const UI = {
     }
   },
 
+  populateScaleSelect() {
+    const sel = this.els.gradingScale;
+    sel.innerHTML = Object.entries(GRADE_SCALES).map(([id, s]) =>
+      `<option value="${this._escape(id)}">${this._escape(s.custom ? s.label : s.label + ' Scale')}</option>`).join('');
+    sel.value = GRADE_SCALES[State.scale] ? State.scale : '5.0';
+  },
   /* ── COURSE ROWS ── */
 
   buildCourseRow(course, scale) {
@@ -999,7 +1212,7 @@ const UI = {
 
   updateDashboard() {
     try {
-      const result = Calculator.calculate(State.courses, State.scale);
+      const result = Calculator.calculate(State.courses, State.scale, State.repeatRule);
       const classInfo = Calculator.classify(result.gpa, State.scale);
       const scaleMax = GRADE_SCALES[State.scale].max;
       const hasData = result.validCount > 0;
@@ -1027,7 +1240,11 @@ const UI = {
         badge.className = `classification-badge ${classInfo.cssClass}`;
         desc.textContent = classInfo.desc;
       }
-
+      const note = document.getElementById('repeat-note');
+      if (note) {
+        const n = Calculator.repeatsIgnored(State.courses, State.scale, State.repeatRule);
+        note.textContent = n ? `${n} repeated attempt${n !== 1 ? 's' : ''} not counted (retake rule: ${State.repeatRule === 'best' ? 'best only' : 'latest only'}).` : '';
+      }
       // Update CGPA display
       CGPA.updateDisplay();
     } catch (err) {
@@ -1081,7 +1298,7 @@ const UI = {
           <div class="history-card-info">
             <div class="history-card-name" title="${this._escape(sem.name)}">${this._escape(sem.name)}</div>
             <div class="history-card-meta">
-              ${sem.courses.length} courses · ${sem.totalUnits} units · ${sem.scale} scale · ${savedDate}
+              ${sem.courses.length} courses · ${sem.totalUnits} units · ${this._escape(GRADE_SCALES[sem.scale]?.label ?? 'unknown')} scale · ${savedDate}
             </div>
             ${classInfo ? `<span class="history-badge">${classInfo.label}</span>` : ''}
           </div>
@@ -1159,7 +1376,7 @@ const UI = {
       if (!sem) return;
 
       const classInfo = Calculator.classify(sem.gpa, sem.scale);
-      const scaleLabel = GRADE_SCALES[sem.scale].label;
+      if (!GRADE_SCALES[sem.scale]) { this.toast('This semester uses a scale that is not installed', 'error'); return; }
 
       this.els.viewModalTitle.textContent = sem.name;
 
@@ -1409,6 +1626,135 @@ function updateRowGP(row) {
 /* ============================================================
    12. COURSE MANAGEMENT
    ============================================================ */
+/** Switch scale: convert/clear grades that don't exist on the new scale, then redraw everything. */
+function applyScale(scale, { silent = false } = {}) {
+  try {
+    if (!GRADE_SCALES[scale]) scale = '5.0';
+    syncStateFromDOM();
+    const r = Scales.reconcileGrades(State.courses, scale);
+    State.courses = r.courses;
+    State.scale = scale;
+    Storage.saveScale(scale);
+    UI.populateScaleSelect();
+    UI.els.scaleLabel.textContent = `/ ${GRADE_SCALES[scale].max}`;
+    UI.renderCourseList();                    // rebuilds rows: new grade options and fresh GP cells
+    UI.updateDashboard();
+    if (UI.populatePlannerTargets) UI.populatePlannerTargets();
+    if (!silent) {
+      const notes = [];
+      if (r.mapped) notes.push(`${r.mapped} grade${r.mapped !== 1 ? 's' : ''} converted`);
+      if (r.cleared) notes.push(`${r.cleared} cleared (not on this scale)`);
+      UI.toast(`Switched to ${GRADE_SCALES[scale].label}` + (notes.length ? ` — ${notes.join(', ')}` : ''), 'info');
+    }
+  } catch (err) {
+    console.error('Scale change error:', err);
+    UI.toast('Could not switch scale', 'error');
+  }
+}
+
+const ScaleEditor = {
+  els: null, editingId: null,
+
+  init() {
+    const $ = id => document.getElementById(id);
+    this.els = {
+      modal: $('scale-modal'), name: $('scale-name'), preset: $('scale-preset'), rows: $('scale-rows'),
+      err: $('scale-error'), add: $('scale-add-row'), save: $('scale-save'), cancel: $('scale-cancel'),
+      del: $('scale-delete'), dup: $('scale-duplicate'), open: $('scale-manage'), desc: $('scale-modal-desc')
+    };
+    const e = this.els;
+    e.open.addEventListener('click', () => this.open());
+    e.cancel.addEventListener('click', () => this.close());
+    e.modal.addEventListener('click', ev => { if (ev.target === e.modal) this.close(); });
+    e.modal.addEventListener('keydown', ev => { if (ev.key === 'Escape') this.close(); });
+    e.add.addEventListener('click', () => this.addRow('', ''));
+    e.preset.addEventListener('change', () => { if (GRADE_SCALES[e.preset.value]) this.fill(GRADE_SCALES[e.preset.value].grades); });
+    e.rows.addEventListener('click', ev => { const b = ev.target.closest('[data-remove]'); if (b) b.closest('.scale-row').remove(); });
+    e.save.addEventListener('click', () => this.save());
+    e.del.addEventListener('click', () => this.remove());
+    e.dup.addEventListener('click', () => this.duplicate());
+  },
+
+  open() {
+    const e = this.els, cur = State.scale, editing = Scales.isCustom(cur);
+    const used = editing ? Scales.usage(cur, Storage.loadSemesters()) : 0;
+    this.editingId = editing ? cur : null;
+    e.err.textContent = '';
+    e.preset.innerHTML = '<option value="">Start from…</option>' + Object.entries(GRADE_SCALES)
+      .map(([id, s]) => `<option value="${UI._escape(id)}">${UI._escape(s.label)}</option>`).join('');
+    e.preset.value = editing ? '' : cur;
+    e.preset.disabled = editing;
+    e.name.value = editing ? GRADE_SCALES[cur].label : '';
+    this.fill(GRADE_SCALES[cur].grades);
+    e.desc.textContent = !editing ? 'Pick a starting point, then set each grade and what it is worth.'
+      : used ? `Used by ${used} saved semester${used !== 1 ? 's' : ''}: you can rename it, but grades and points are locked. Use Duplicate for an editable copy.`
+        : 'Edit this scale. Changes apply to every course using it.';
+    e.rows.querySelectorAll('input').forEach(i => { i.disabled = used > 0; });
+    e.add.disabled = used > 0;
+    e.del.hidden = e.dup.hidden = !editing;
+    e.modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => e.name.focus(), 50);
+  },
+
+  close() { this.els.modal.hidden = true; document.body.style.overflow = ''; },
+
+  fill(grades) {
+    this.els.rows.innerHTML = '';
+    Object.entries(grades).sort((a, b) => b[1] - a[1]).forEach(([g, p]) => this.addRow(g, p));
+  },
+
+  addRow(g, p) {
+    const row = document.createElement('div');
+    row.className = 'scale-row';
+    row.innerHTML = `
+      <input class="modal-input" data-g maxlength="4" placeholder="Grade" value="${UI._escape(g)}" aria-label="Grade label" />
+      <input class="modal-input" data-p type="number" step="0.01" min="0" max="20" placeholder="Points" value="${UI._escape(p)}" aria-label="Grade points" />
+      <button type="button" class="remove-btn" data-remove aria-label="Remove grade">✕</button>`;
+    this.els.rows.appendChild(row);
+  },
+
+  read() {
+    const grades = {};
+    let dupe = null;
+    this.els.rows.querySelectorAll('.scale-row').forEach(r => {
+      const g = r.querySelector('[data-g]').value.trim().toUpperCase();
+      const p = r.querySelector('[data-p]').value;
+      if (!g && p === '') return;                            // ignore blank rows
+      if (Object.hasOwn(grades, g)) dupe = g;
+      grades[g] = p === '' ? NaN : Number(p);
+    });
+    return { dupe, def: { id: this.editingId || undefined, label: this.els.name.value, grades } };
+  },
+
+  save() {
+    const e = this.els, { def, dupe } = this.read();
+    if (dupe) { e.err.textContent = `Grade "${dupe}" appears twice`; return; }
+    const res = Scales.save(def, Storage.loadSemesters());
+    if (!res.ok) { e.err.textContent = res.error; return; }
+    this.close();
+    applyScale(res.id, { silent: true });
+    UI.toast('Scale saved', 'success');
+  },
+
+  duplicate() {
+    const { def } = this.read();
+    const res = Scales.save({ label: (def.label + ' copy').slice(0, 24), grades: def.grades }, Storage.loadSemesters());
+    if (!res.ok) { this.els.err.textContent = res.error; return; }
+    applyScale(res.id, { silent: true });
+    this.open();                                             // reopen on the editable copy
+  },
+
+  remove() {
+    const name = GRADE_SCALES[this.editingId]?.label;
+    if (!confirm(`Delete the scale "${name}"?`)) return;
+    const res = Scales.remove(this.editingId, Storage.loadSemesters());
+    if (!res.ok) { this.els.err.textContent = res.error; return; }
+    this.close();
+    applyScale('5.0', { silent: true });
+    UI.toast(`"${name}" deleted`, 'info');
+  },
+};
 
 function addCourse() {
   try {
@@ -1522,7 +1868,7 @@ function confirmSave() {
       return;
     }
 
-    const result = Calculator.calculate(State.courses, State.scale);
+    const result = Calculator.calculate(State.courses, State.scale, State.repeatRule);
     if (result.validCount === 0) {
       UI.closeSaveModal();
       UI.toast('Add at least one complete course before saving.', 'error');
@@ -1534,7 +1880,7 @@ function confirmSave() {
     UI.renderHistory();
     CGPA.updateDisplay();
     UI.toast(`"${name}" saved!`, 'success');
-    
+
   } catch (err) {
     console.error('Confirm save error:', err);
     UI.toast('Failed to save semester', 'error');
@@ -1619,6 +1965,7 @@ function wireEvents() {
         if (mode === 'replace' && !confirm('Replace your entire saved history? This cannot be undone.')) return;
         const r = Storage.restoreBackup(pendingBackup, mode);
         closeRestore();
+        UI.populateScaleSelect()
         UI.renderHistory();
         CGPA.updateDisplay();
         UI.toast(mode === 'replace'
@@ -1685,19 +2032,15 @@ function wireEvents() {
     });
 
     /* ── Grading Scale ── */
-    els.gradingScale.addEventListener('change', () => {
-      try {
-        State.scale = els.gradingScale.value;
-        Storage.saveScale(State.scale);
-        els.scaleLabel.textContent = `/ ${GRADE_SCALES[State.scale].max}`;
-        syncStateFromDOM();
-        UI.refreshGradeSelects();
-        UI.updateDashboard();
-        UI.populatePlannerTargets();
-        UI.toast(`Switched to ${State.scale} scale`, 'info');
-      } catch (err) {
-        console.error('Scale change error:', err);
-      }
+    els.gradingScale.addEventListener('change', () => applyScale(els.gradingScale.value));
+
+    const repeatSel = document.getElementById('repeat-rule');
+    repeatSel.value = State.repeatRule;
+    repeatSel.addEventListener('change', () => {
+      State.repeatRule = repeatSel.value;
+      Storage.saveRepeatRule(State.repeatRule);
+      UI.updateDashboard();
+      UI.toast({ all: 'Counting every attempt', latest: 'Retakes: latest attempt only', best: 'Retakes: best attempt only' }[State.repeatRule], 'info');
     });
 
     /* ── Theme Toggle ── */
@@ -1707,7 +2050,7 @@ function wireEvents() {
     els.exportCSVBtn.addEventListener('click', () => {
       try {
         syncStateFromDOM();
-        const result = Calculator.calculate(State.courses, State.scale);
+        const result = Calculator.calculate(State.courses, State.scale, State.repeatRule);
         Export.toCSV(State.courses, result, State.scale);
       } catch (err) {
         console.error('CSV export error:', err);
@@ -1719,7 +2062,7 @@ function wireEvents() {
     els.exportPDFBtn.addEventListener('click', () => {
       try {
         syncStateFromDOM();
-        const result = Calculator.calculate(State.courses, State.scale);
+        const result = Calculator.calculate(State.courses, State.scale, State.repeatRule);
         Export.toPDF(State.courses, result, State.scale);
       } catch (err) {
         console.error('PDF export error:', err);
@@ -1867,7 +2210,7 @@ function wireEvents() {
         if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
           e.preventDefault();
           syncStateFromDOM();
-          const result = Calculator.calculate(State.courses, State.scale);
+          const result = Calculator.calculate(State.courses, State.scale, State.repeatRule);
           Export.toCSV(State.courses, result, State.scale);
         }
 
@@ -1963,22 +2306,23 @@ const App = {
       };
 
       /* ── Restore preferences ── */
+      Scales.loadCustom();                                        // must run before reading the saved scale
+      State.repeatRule = Storage.loadRepeatRule();
       const savedTheme = Storage.loadTheme();
-      const savedScale = Storage.loadScale();
+      let savedScale = Storage.loadScale();
+      if (!GRADE_SCALES[savedScale]) savedScale = '5.0';          // saved scale may have been deleted
 
       UI.applyTheme(savedTheme);
       State.scale = savedScale;
-      UI.els.gradingScale.value = savedScale;
+      UI.populateScaleSelect();
       UI.els.scaleLabel.textContent = `/ ${GRADE_SCALES[savedScale].max}`;
       UI.els.ringFill.style.strokeDasharray = RING_CIRCUMFERENCE;
       UI.els.ringFill.style.strokeDashoffset = RING_CIRCUMFERENCE;
-
-      // Add SVG animation CSS
       UI.els.ringFill.style.transition = 'stroke-dashoffset 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)';
       UI.els.ringFill.style.willChange = 'stroke-dashoffset';
-
       /* ── Wire events ── */
       wireEvents();
+      ScaleEditor.init();
       UI.populatePlannerTargets();
 
       /* ── Initialize ── */

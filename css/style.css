@@ -1266,6 +1266,10 @@ select.field-input option {
 .planner-chip { font-size: 0.75rem; padding: 3px 10px; border-radius: 99px; background: var(--surface-3); border: 1px solid var(--border); }
 .planner-note { margin-top: 14px; font-size: 0.72rem; color: var(--text-faint); }
 .hidden { display: none !important; }
+
+.scale-rows { max-height: 40vh; overflow: auto; margin: 12px 0 8px; }
+.scale-row { display: grid; grid-template-columns: 1fr 1fr 36px; gap: 8px; margin-bottom: 8px; align-items: center; }
+.scale-row .modal-input { width: 100%; margin: 0; }
 .sr-only {
   position: absolute;
   width: 1px; height: 1px;

@@ -5,11 +5,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-function loadApp() {
+function loadApp(opts = {}) {
   const file = process.env.GPA_APP_PATH || path.join(__dirname, '..', 'js', 'app.js');
   const src = fs.readFileSync(file, 'utf8');
 
-  const store = new Map();
+  const store = opts.store || new Map();
   const noop = () => {};
   const sandbox = {
     console,
@@ -27,10 +27,11 @@ function loadApp() {
   const publish = `
 ;globalThis.__gpa = {
   GRADE_SCALES, CLASSIFICATIONS, State, Calculator, Storage, Import, CGPA,
-  Planner: typeof Planner !== 'undefined' ? Planner : undefined
+  Planner: typeof Planner !== 'undefined' ? Planner : undefined,
+  Scales:  typeof Scales  !== 'undefined' ? Scales  : undefined
 };`;
   vm.runInContext(src + publish, sandbox, { filename: file });
-  return { ...sandbox.__gpa, localStorage: sandbox.localStorage };
+  return { ...sandbox.__gpa, localStorage: sandbox.localStorage, store };
 }
 
 module.exports = { loadApp };
