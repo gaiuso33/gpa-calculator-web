@@ -1,37 +1,40 @@
-/* GPA Calculator Pro — service worker (Jira #12)
- * Strategy: precache the app shell, cache CDN assets (jsPDF, fonts) on
- * first use, then serve cache-first with a background refresh.
+/* GPA Calculator Pro — service worker (Jira #12, #17, #20)
+ * Every file the app needs is self-hosted, so the whole app is precached on
+ * install and works fully offline. Serve cache-first, refresh in the background.
  * Bump CACHE_VERSION whenever shipped files change.
  */
-const CACHE_VERSION = 'gpapro-v2';
+const CACHE_VERSION = 'gpapro-v3';
 
 const APP_SHELL = [
   './',
   'index.html',
   'manifest.webmanifest',
   'css/style.css',
+  'css/fonts.css',
   'js/app.js',
   'js/pwa.js',
+  'icons/apple-touch-icon.png',
   'icons/icon-192.png',
   'icons/icon-512.png',
   'icons/icon-maskable-512.png',
-  'icons/apple-touch-icon.png',
-];
-
-const CDN_ASSETS = [
-  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js',
-  'https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap',
+  'assets/vendor/jspdf.plugin.autotable.min.js',
+  'assets/vendor/jspdf.umd.min.js',
+  'assets/fonts/plus-jakarta-sans-latin-300-normal.woff2',
+  'assets/fonts/plus-jakarta-sans-latin-400-italic.woff2',
+  'assets/fonts/plus-jakarta-sans-latin-400-normal.woff2',
+  'assets/fonts/plus-jakarta-sans-latin-500-normal.woff2',
+  'assets/fonts/plus-jakarta-sans-latin-600-normal.woff2',
+  'assets/fonts/sora-latin-300-normal.woff2',
+  'assets/fonts/sora-latin-400-normal.woff2',
+  'assets/fonts/sora-latin-600-normal.woff2',
+  'assets/fonts/sora-latin-700-normal.woff2',
+  'assets/fonts/sora-latin-800-normal.woff2',
 ];
 
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE_VERSION);
     await cache.addAll(APP_SHELL);
-    // CDN assets are best-effort: a failure must not block installation.
-    await Promise.allSettled(
-      CDN_ASSETS.map(url => cache.add(new Request(url, { mode: 'no-cors' })))
-    );
     self.skipWaiting();
   })());
 });
@@ -47,28 +50,21 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const req = event.request;
   if (req.method !== 'GET') return;
+  if (new URL(req.url).origin !== self.location.origin) return;   // never touch third-party requests
 
   event.respondWith((async () => {
     const cache  = await caches.open(CACHE_VERSION);
-    const cached = await cache.match(req, { ignoreSearch: false });
+    const cached = await cache.match(req);
 
     const refresh = fetch(req)
-      .then(res => {
-        // Cache good same-origin responses and opaque cross-origin ones (fonts, CDN).
-        if (res && (res.ok || res.type === 'opaque')) cache.put(req, res.clone());
-        return res;
-      })
+      .then(res => { if (res && res.ok) cache.put(req, res.clone()); return res; })
       .catch(() => null);
 
-    if (cached) {
-      event.waitUntil(refresh);
-      return cached;
-    }
+    if (cached) { event.waitUntil(refresh); return cached; }
 
     const fresh = await refresh;
     if (fresh) return fresh;
 
-    // Offline navigation fallback
     if (req.mode === 'navigate') return (await cache.match('index.html')) || Response.error();
     return Response.error();
   })());
