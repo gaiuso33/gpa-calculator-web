@@ -1,6 +1,6 @@
 # GPA Calculator Pro — Quick Reference Guide
 
-## 📥 How to Import Courses
+##  How to Import Courses
 
 ### CSV Format
 ```csv
@@ -34,7 +34,7 @@ Physics 101,PHY101,3,C
 }
 ```
 
-## 🎯 Input Validation Rules
+##  Input Validation Rules
 
 ### Course Title
 - ✅ Required
@@ -58,7 +58,7 @@ Physics 101,PHY101,3,C
 - ✅ Required (if adding a course)
 - ✅ Must select from dropdown
 
-## 📊 Dashboard Cards Explained
+##  Dashboard Cards Explained
 
 ### Current GPA
 - Your GPA for the current semester (active courses)
@@ -79,7 +79,7 @@ Physics 101,PHY101,3,C
 - Sum of all credit units for current semester
 - Sum of all (units × grade point) for current semester
 
-## 🔧 Troubleshooting Quick Fixes
+##  Troubleshooting Quick Fixes
 
 | Problem | Solution |
 |---------|----------|
@@ -90,7 +90,7 @@ Physics 101,PHY101,3,C
 | PDF export fails | Falls back to print mode (Ctrl+P) automatically |
 | Old data disappeared | Data is in localStorage; try refreshing page |
 
-## 📝 Example Workflow
+##  Example Workflow
 
 ### Scenario: You have 15 courses from last semester's transcript
 
@@ -99,13 +99,13 @@ Physics 101,PHY101,3,C
 2. Save as `.csv` file
 3. Click **Import** button in GPA Calculator
 4. Select your CSV file
-5. ✨ All 15 courses appear instantly
+5.  All 15 courses appear instantly
 6. Review and edit as needed
 7. Click **Save Semester**
 
 **Time saved:** ~10 minutes (vs manual entry)
 
-## 🎓 Academic Classifications
+##  Academic Classifications
 
 ### 5.0 Scale (Nigerian System)
 - **First Class**: 4.50–5.00 (Outstanding)
@@ -123,19 +123,19 @@ Physics 101,PHY101,3,C
 - **Pass**: 0.50–0.99 (Minimum passing)
 - **Fail**: 0.00–0.49 (Below passing)
 
-## 💾 Data Storage
+##  Data Storage
 
 ### What's Saved
-- ✅ Your current courses
-- ✅ All saved semesters
-- ✅ Your theme preference (dark/light)
-- ✅ Your grading scale preference (5.0/4.0)
+-  All current courses
+-  All saved semesters
+-  Theme preference (dark/light)
+-  Grading scale preference (5.0/4.0)
 
 ### Where It's Saved
 - **Location:** Browser's localStorage
 - **Capacity:** 5–10 MB per domain
 - **Persistence:** Survives browser close, page reload
-- **Cleared when:** You clear browser cache/data
+- **Cleared when:** Browser cache/data is cleared
 
 ### Backup Your Data
 ```javascript
@@ -147,7 +147,7 @@ localStorage.getItem('gpapro_semesters')
 localStorage.setItem('gpapro_semesters', '[paste_json_here]')
 ```
 
-## 🎨 Theme & Display
+##  Theme & Display
 
 ### Dark Mode (Default)
 - Easy on the eyes in low light
@@ -161,48 +161,48 @@ localStorage.setItem('gpapro_semesters', '[paste_json_here]')
 
 **Toggle:** Click moon/sun icon in header
 
-## 📱 Mobile Usage
+##  Mobile Usage
 
 ### Recommended
-- ✅ Portrait mode (vertical)
-- ✅ Tablets (landscape mode)
-- ✅ Recent iPhones and Android phones
-- ✅ Screen sizes 320px and above
+-  Portrait mode (vertical)
+-  Tablets (landscape mode)
+-  Recent iPhones and Android phones
+-  Screen sizes 320px and above
 
 ### Tips
 - Swipe to scroll through semesters
 - Tap buttons instead of Ctrl+key (keyboard shortcuts don't work on mobile)
 - Import works on mobile (file picker opens)
 
-## 🌐 Online/Offline
+##  Online/Offline
 
 ### Works Online
-- ✅ PDF export (via CDN library)
-- ✅ Everything else
+-  PDF export (via CDN library)
+-  Everything else
 
 ### Works Offline
-- ✅ Add/edit/delete courses
-- ✅ Calculate GPA
-- ✅ Export CSV
-- ✅ View saved semesters
-- ✅ Theme/scale preferences
-- ✅ All keyboard shortcuts
+-  Add/edit/delete courses
+-  Calculate GPA
+-  Export CSV
+-  View saved semesters
+-  Theme/scale preferences
+-  All keyboard shortcuts
 
 ### First Load
 - Requires internet to load fonts and PDF library from CDN
 - After first load, everything cached and works offline
 
-## 🔐 Privacy & Security
+##  Privacy & Security
 
-- ✅ All data stays in your browser
-- ✅ No server uploads
-- ✅ No account login needed
-- ✅ No tracking or analytics
-- ✅ No cookies (just localStorage)
+-  All data stays in your browser
+-  No server uploads
+-  No account login needed
+-  No tracking or analytics
+-  No cookies (just localStorage)
 
 ---
 
-## 📚 File Guide
+##  File Guide
 
 After installation, your project contains:
 
@@ -234,7 +234,7 @@ gpa-calculator/
 
 ---
 
-## 🚀 Pro Tips
+##  Pro Tips
 
 1. **Use Import for large course lists** - Way faster than manual entry
 2. **Use Ctrl+Z liberally** - Undo works for add/remove/import
@@ -246,7 +246,7 @@ gpa-calculator/
 
 ---
 
-## ❓ FAQ
+##  FAQ
 
 **Q: Can I use this on mobile?**
 A: Yes! Works great on phones and tablets. Keyboard shortcuts work via Cmd key on iOS.
@@ -274,7 +274,7 @@ A: Unlimited technically, but practical UI limit ~50 courses (becomes unwieldy).
 
 ---
 
-## 🎯 Common Use Cases
+##  Common Use Cases
 
 ### Use Case 1: Track First Semester
 1. Add 6 courses manually or import from file
@@ -304,7 +304,7 @@ A: Unlimited technically, but practical UI limit ~50 courses (becomes unwieldy).
 
 ---
 
-## 🎓 Study Tips Using GPA Calculator
+##  Study Tips Using GPA Calculator
 
 - **Track by semester** - Saves you from calculating manually
 - **Undo experiments** - Test "what if I get a C?" then undo
