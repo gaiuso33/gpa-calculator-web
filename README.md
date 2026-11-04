@@ -2,10 +2,9 @@
 
 **[Oluwole Gaius Ayokunle]**  
 [oluwolegaiusayokunle@gmail.com]  
-🔗 [Notion Portfolio](https://www.notion.so/hero-section-22064fc37bca80e1ae99fcb6a8cf5704?source=copy_link)  
 
 
-# 🎓 GPA Calculator Pro — Enhanced Edition
+# GPA Calculator Pro — Enhanced Edition
 
 [![Status](https://img.shields.io/badge/status-production%20ready-brightgreen)](https://github.com)
 [![Version](https://img.shields.io/badge/version-2.0%20enhanced-blue)](https://github.com)
@@ -18,19 +17,19 @@ A powerful, feature-rich GPA calculator for tracking academic performance across
 
 ---
 
-## ✨ Features
+##  Features
 
 ### Core Features (Original)
-- 📊 **Real-time GPA Calculation** — Updates instantly as you enter grades
-- 📈 **Dual Grading Scales** — Support for both 5.0 and 4.0 scales
-- 🌓 **Dark & Light Themes** — Professional dark mode + accessible light mode
-- 💾 **Semester History** — Save and manage multiple semesters
-- 📄 **CSV Export** — Download your GPA reports
-- 📑 **PDF Export** — Generate beautiful PDF reports with jsPDF
-- 🎯 **Academic Classifications** — See your letter grade classification
-- ⚡ **Fully Responsive** — Works perfectly on desktop, tablet, and mobile
+-  **Real-time GPA Calculation** — Updates instantly as you enter grades
+-  **Dual Grading Scales** — Support for both 5.0 and 4.0 scales
+-  **Dark & Light Themes** — Professional dark mode + accessible light mode
+-  **Semester History** — Save and manage multiple semesters
+-  **CSV Export** — Download your GPA reports
+-  **PDF Export** — Generate beautiful PDF reports with jsPDF
+-  **Academic Classifications** — See your letter grade classification
+-  **Fully Responsive** — Works perfectly on desktop, tablet, and mobile
 
-### 🆕 New Features (Enhanced Edition)
+###  New Features (Enhanced Edition)
 
 | Feature | Shortcut | Benefit |
 |---------|----------|---------|
@@ -48,7 +47,7 @@ A powerful, feature-rich GPA calculator for tracking academic performance across
 
 ---
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### Installation
 
@@ -61,14 +60,14 @@ cd gpa-calculator
 
 ### Verification
 After installation, verify these appear:
-- ✅ CGPA card in dashboard
-- ✅ Import button next to "Add Course"
-- ✅ Console shows: "✅ GPA Calculator Pro enhanced edition initialised"
-- ✅ Info toast: "Ready to calculate! Use Ctrl+N to add courses."
+-  CGPA card in dashboard
+-  Import button next to "Add Course"
+-  Console shows: " GPA Calculator Pro enhanced edition initialised"
+-  Info toast: "Ready to calculate! Use Ctrl+N to add courses."
 
 ---
 
-## 📖 Usage Guide
+##  Usage Guide
 
 ### Adding Courses
 
@@ -111,7 +110,7 @@ PDF Export → Click "PDF" button
 
 ---
 
-## ⌨️ Keyboard Shortcuts
+##  Keyboard Shortcuts
 
 | Shortcut | Action | Notes |
 |----------|--------|-------|
@@ -122,11 +121,11 @@ PDF Export → Click "PDF" button
 | `Ctrl+R` | Reset semester | Clears all courses |
 | `Escape` | Close modal | Works in any modal dialog |
 
-**💡 Pro Tip:** Keyboard shortcuts don't work on mobile. Use buttons instead!
+** Pro Tip:** Keyboard shortcuts don't work on mobile. Use buttons instead!
 
 ---
 
-## 📥 Importing Courses
+##  Importing Courses
 
 ### CSV Format
 ```csv
@@ -162,12 +161,12 @@ Chemistry Lab,CHM102,2,B+
 ```
 
 ### Import Tips
-- ✅ Works with Excel → Save as CSV
-- ✅ Works with Google Sheets → Download as CSV
-- ✅ Flexible column names — system detects automatically
-- ✅ Optional fields: Code, Grade (can be added later)
-- ✅ Undo with `Ctrl+Z` if you change your mind
-- ✅ Max file size: ~1 MB (practical limit)
+-  Works with Excel → Save as CSV
+-  Works with Google Sheets → Download as CSV
+-  Flexible column names — system detects automatically
+-  Optional fields: Code, Grade (can be added later)
+-  Undo with `Ctrl+Z` if you change your mind
+-  Max file size: ~1 MB (practical limit)
 
 ---
 
@@ -200,7 +199,7 @@ Your academic standing based on your GPA
 
 ---
 
-## 🎯 Input Validation
+##  Input Validation
 
 The app validates your data to prevent errors:
 
@@ -212,14 +211,14 @@ The app validates your data to prevent errors:
 | **Grade** | Must select from dropdown | "A" ✅ |
 
 **Error Examples:**
-- ❌ Empty title → "Course title is required"
-- ❌ Units = -5 → "Units cannot be negative"
-- ❌ Units = 100 → "Units must be 50 or less"
-- ❌ Code = "MAT@101" → "Code can only contain letters, numbers, hyphens, and slashes"
+-  Empty title → "Course title is required"
+-  Units = -5 → "Units cannot be negative"
+-  Units = 100 → "Units must be 50 or less"
+-  Code = "MAT@101" → "Code can only contain letters, numbers, hyphens, and slashes"
 
 ---
 
-## 🌓 Themes
+##  Themes
 
 ### Dark Mode (Default)
 - Eye-friendly in low light
@@ -235,7 +234,7 @@ The app validates your data to prevent errors:
 
 ---
 
-## 💾 Data Storage
+##  Data Storage
 
 ### What's Saved
 - Your current courses
@@ -261,7 +260,7 @@ localStorage.setItem('gpapro_semesters', '[paste_json_here]')
 
 ---
 
-## 🔧 Configuration
+##  Configuration
 
 ### Grading Scales
 
@@ -289,7 +288,7 @@ Switch scales anytime — all courses are recalculated automatically!
 
 ---
 
-## 🚨 Error Handling
+##  Error Handling
 
 The app handles errors gracefully:
 
@@ -310,7 +309,7 @@ The app handles errors gracefully:
 
 ---
 
-## 📱 Platform Support
+##  Platform Support
 
 ### Desktop
 - ✅ Chrome (latest)
@@ -333,7 +332,7 @@ The app handles errors gracefully:
 
 ---
 
-## 🆘 Troubleshooting
+##  Troubleshooting
 
 ### Problem: Import button doesn't work
 **Solution:** Ensure file is `.csv` or `.json` (not `.txt`, `.xlsx`, `.pdf`)
@@ -367,7 +366,7 @@ See the documentation files included:
 
 ---
 
-## 📊 Technical Details
+##  Technical Details
 
 ### Architecture
 - **Pattern:** Module-object pattern
@@ -401,29 +400,23 @@ gpa-calculator/
 
 ---
 
-## 🎓 Educational Value
+##  Educational Value
 
 This project demonstrates:
-- ✅ Advanced JavaScript patterns (modules, closures)
-- ✅ DOM manipulation & event handling
-- ✅ localStorage persistence
-- ✅ CSV/JSON parsing
-- ✅ State management & undo/redo
-- ✅ Error boundary concepts
-- ✅ Keyboard shortcuts implementation
-- ✅ Responsive design
-- ✅ Accessibility (ARIA labels)
-- ✅ Professional error handling
-
-**Perfect for:**
-- Portfolio projects
-- Learning JavaScript
-- Understanding app architecture
-- Best practices in web development
+-  Advanced JavaScript patterns (modules, closures)
+-  DOM manipulation & event handling
+-  localStorage persistence
+-  CSV/JSON parsing
+-  State management & undo/redo
+-  Error boundary concepts
+-  Keyboard shortcuts implementation
+-  Responsive design
+-  Accessibility (ARIA labels)
+-  Professional error handling
 
 ---
 
-## 🔄 Update History
+##  Update History
 
 ### Version 2.0 — Enhanced Edition (May 17, 2026)
 **11 New Features Added:**
@@ -460,31 +453,31 @@ This project demonstrates:
 ## 💡 Use Cases
 
 ### For Students
-- 📚 Track GPA throughout your degree program
-- 📈 Monitor academic progress semester by semester
-- 🎯 Plan what grades you need for your target GPA
-- 💪 Show advisors your cumulative progress
-- 📊 Create reports for academic records
+-  Track GPA throughout your degree program
+-  Monitor academic progress semester by semester
+-  Plan what grades you need for your target GPA
+-  Show advisors your cumulative progress
+-  Create reports for academic records
 
 ### For Academic Advisors
-- 📋 Quick GPA verification
-- 📈 Track student progress trends
-- 🎓 Review classifications
-- 📄 Generate reports for records
+-  Quick GPA verification
+-  Track student progress trends
+-  Review classifications
+-  Generate reports for records
 
 ### For Parents
-- 👁️ Monitor child's academic performance
-- 📈 See improvement trends over time
-- 🎯 Discuss target GPAs
+-  Monitor child's academic performance
+-  See improvement trends over time
+-  Discuss target GPAs
 
 ### For Educators
-- 🔍 Understand student grade distribution
-- 📊 Verify GPA calculations
-- 📋 Quick grade statistics
+-  Understand student grade distribution
+-  Verify GPA calculations
+-  Quick grade statistics
 
 ---
 
-## 🤝 Contributing
+##  Contributing
 
 ### Found a Bug?
 1. Check the troubleshooting section above
@@ -508,25 +501,25 @@ The code is well-documented and modular:
 
 ---
 
-## 📄 License
+##  License
 
 This project is licensed under the MIT License — see LICENSE file for details.
 
 **You're free to:**
-- ✅ Use for personal projects
-- ✅ Modify the code
-- ✅ Share with others
-- ✅ Use commercially
+-  Use for personal projects
+-  Modify the code
+-  Share with others
+-  Use commercially
 
 **Just remember to:**
-- ✅ Include license notice
-- ✅ Credit the original author
+-  Include license notice
+-  Credit the original author
 
 ---
 
-## 👨‍💻 Credits
+##  Credits
 
-### Original Developer
+### Original Developer: Oluwole Gaius
 - Created the initial GPA Calculator Pro
 - Excellent architecture & design
 - Clean, maintainable code
@@ -545,7 +538,7 @@ This project is licensed under the MIT License — see LICENSE file for details.
 
 ---
 
-## 🎯 Future Enhancements (Roadmap)
+##  Future Enhancements (Roadmap)
 
 ### Phase 1: Polish (Q3 2026)
 - [ ] Add service worker for PWA support
@@ -570,7 +563,7 @@ This project is licensed under the MIT License — see LICENSE file for details.
 
 ---
 
-## ❓ FAQ
+##  FAQ
 
 **Q: Is my data safe?**
 A: Yes! All data stays in your browser. No servers, no uploads, no tracking.
@@ -601,7 +594,7 @@ A: Semesters don't support undo (to prevent accidents). Always confirm before de
 
 ---
 
-## 🌟 Tips & Tricks
+##  Tips & Tricks
 
 1. **Use Import for transcripts:** Save huge amounts of time entering 20+ courses
 2. **Keyboard shortcuts are fastest:** Keep hands on keyboard with Ctrl shortcuts
@@ -613,18 +606,18 @@ A: Semesters don't support undo (to prevent accidents). Always confirm before de
 
 ---
 
-## 📞 Support & Contact
+##  Support & Contact
 
 ### Documentation
-- 📖 See included markdown files for detailed guides
-- 📚 Check code comments in `app.js` for implementation details
-- ❓ FAQ section above answers common questions
+-  See included markdown files for detailed guides
+-  Check code comments in `app.js` for implementation details
+-  FAQ section above answers common questions
 
 ### Resources
-- 🔍 QUICK-REFERENCE.md — Quick lookup for shortcuts
-- 🛠️ IMPLEMENTATION-COMPLETE.md — How each feature works
-- 💻 IMPLEMENTATION-GUIDE.md — Code examples
-- ✅ GPA-CALCULATOR-REVIEW.md — Full code review
+-  QUICK-REFERENCE.md — Quick lookup for shortcuts
+-  IMPLEMENTATION-COMPLETE.md — How each feature works
+-  IMPLEMENTATION-GUIDE.md — Code examples
+-  GPA-CALCULATOR-REVIEW.md — Full code review
 
 ### Browser Console
 - Press F12 to open developer tools
@@ -633,7 +626,7 @@ A: Semesters don't support undo (to prevent accidents). Always confirm before de
 
 ---
 
-## 📈 Performance
+##  Performance
 
 - **Load Time:** < 1 second
 - **Calculation Time:** Real-time (instant)
@@ -643,32 +636,31 @@ A: Semesters don't support undo (to prevent accidents). Always confirm before de
 
 ---
 
-## 🎉 Getting Started Now
+##  Getting Started Now
 
 1. **Read:** `00-START-HERE.txt` (5 minutes)
 2. **Copy:** Enhanced files to your project (2 minutes)
 3. **Test:** Verify features work (5 minutes)
-4. **Use:** Start tracking your GPA! 🎓
+4. **Use:** Start tracking your GPA! 
 
 ---
 
-## 🏆 Project Status
+##  Project Status
 
 | Aspect | Status |
 |--------|--------|
-| Development | ✅ Complete |
-| Testing | ✅ Comprehensive |
-| Documentation | ✅ Extensive |
-| Production Ready | ✅ Yes |
-| Backward Compatible | ✅ 100% |
-| Mobile Support | ✅ Full |
-| Error Handling | ✅ Comprehensive |
-| Code Quality | ✅ A+ Grade |
-| Portfolio Worthy | ✅ Yes |
+| Development |  Complete |
+| Testing |  Comprehensive |
+| Documentation |  Extensive |
+| Production Ready |  Yes |
+| Backward Compatible |  100% |
+| Mobile Support |  Full |
+| Error Handling |  Comprehensive |
+| Code Quality |  A+ Grade |
 
 ---
 
-## 📜 Version Information
+##  Version Information
 
 ```
 App:             GPA Calculator Pro
@@ -683,11 +675,11 @@ Features:        19 total (8 original + 11 new)
 
 ---
 
-## 👋 Thank You
+##  Thank You
 
-Thank you for using GPA Calculator Pro! We hope it helps you track your academic journey successfully.
+Thank you for using GPA Calculator Pro! I hope it helps you track your academic journey successfully.
 
-**Made with ❤️ for students everywhere** 🎓
+**Made with ❤️ for students everywhere** 
 
 ---
 
