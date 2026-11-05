@@ -28,7 +28,8 @@ function loadApp(opts = {}) {
 ;globalThis.__gpa = {
   GRADE_SCALES, CLASSIFICATIONS, State, Calculator, Storage, Import, CGPA,
   Planner: typeof Planner !== 'undefined' ? Planner : undefined,
-  Scales:  typeof Scales  !== 'undefined' ? Scales  : undefined
+  Scales:  typeof Scales  !== 'undefined' ? Scales  : undefined,
+  ShareCard: typeof ShareCard !== 'undefined' ? ShareCard : undefined
 };`;
   vm.runInContext(src + publish, sandbox, { filename: file });
   return { ...sandbox.__gpa, localStorage: sandbox.localStorage, store };

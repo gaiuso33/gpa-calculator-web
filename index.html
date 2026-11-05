@@ -193,6 +193,10 @@
           <button class="btn btn-outline" id="export-pdf-btn" title="Download as PDF">
             <span aria-hidden="true">📑</span> PDF
           </button>
+          <button class="btn btn-outline" id="share-btn" title="Create a shareable image of your result">
+            <span aria-hidden="true">🖼</span> Share
+          </button>
+
         </div>
       </div>
 
@@ -281,6 +285,33 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="card-modal" role="dialog" aria-modal="true" aria-labelledby="card-modal-title" hidden>
+    <div class="modal modal-wide">
+      <div class="modal-top-bar">
+        <h3 class="modal-title" id="card-modal-title">🖼 Share your result</h3>
+        <button class="btn btn-ghost btn-icon" id="card-close" aria-label="Close">✕</button>
+      </div>
+      <div class="card-layout">
+        <canvas id="card-canvas" class="card-canvas" width="1080" height="1080"
+          aria-label="Preview of your result card"></canvas>
+        <div class="card-options">
+          <p class="modal-desc">Choose what to show:</p>
+          <label><input type="checkbox" data-opt="gpa" /> GPA</label>
+          <label><input type="checkbox" data-opt="classification" /> Classification</label>
+          <label><input type="checkbox" data-opt="cgpa" /> Cumulative GPA</label>
+          <label><input type="checkbox" data-opt="units" /> Total units</label>
+          <label><input type="checkbox" data-opt="scale" /> Grading scale</label>
+          <input id="card-caption" class="modal-input" maxlength="40" placeholder="Caption, e.g. 200L First Semester"
+            aria-label="Caption" />
+          <span class="field-error" id="card-msg" role="alert"></span>
+          <div class="modal-actions" style="flex-wrap:wrap">
+            <button class="btn btn-outline" id="card-download">⬇ Download image</button>
+            <button class="btn btn-primary" id="card-share">↗ Share</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- ===========================
        RENAME MODAL
