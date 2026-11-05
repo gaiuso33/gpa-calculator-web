@@ -1065,6 +1065,118 @@ const Scales = {
 
 Scales.registerBuiltIns();
 
+
+/* ============================================================
+   SHARE CARD MODULE — shareable result image (Jira #21)
+   Paste into js/app.js after the Scales module.
+   buildModel / fit / shareText / draw are pure (no DOM), so they are unit-tested.
+   ============================================================ */
+
+const ShareCard = {
+  SIZE: 1080,
+  COLORS: { top: '#0d2040', bottom: '#080c18', acc: '#34d399', text: '#e8edf7', mute: '#8895af', track: '#1c2a48', line: 'rgba(255,255,255,0.08)' },
+
+  /**
+   * Decide what the card shows.
+   * @param {object} d    { hasData, gpa, scaleMax, scaleLabel, classLabel, totalUnits, cgpa, cgpaCount }
+   * @param {object} opts { gpa, classification, cgpa, units, scale } — booleans the user chose
+   */
+  buildModel(d, opts, caption = '') {
+    if (!d.hasData) return { empty: true, reason: 'Add at least one complete course (with units and a grade) first.' };
+
+    let hero = null;
+    const lines = [];
+    if (opts.gpa) {
+      hero = { kind: 'gpa', value: d.gpa.toFixed(2), suffix: `out of ${Number(d.scaleMax).toFixed(1)}`, pct: Math.min(d.gpa / d.scaleMax, 1) };
+    }
+    if (opts.classification && d.classLabel) lines.push({ label: 'Classification', value: d.classLabel });
+    if (opts.cgpa && d.cgpaCount > 0)        lines.push({ label: 'Cumulative GPA', value: d.cgpa.toFixed(2) });
+    if (opts.units)                          lines.push({ label: 'Total units', value: String(d.totalUnits) });
+    if (opts.scale)                          lines.push({ label: 'Grading scale', value: d.scaleLabel });
+
+    // No GPA ring? Promote the first chosen detail to the headline.
+    if (!hero && lines.length) { const f = lines.shift(); hero = { kind: 'text', label: f.label, value: f.value }; }
+    if (!hero) return { empty: true, reason: 'Choose at least one detail to include.' };
+
+    return { empty: false, caption: String(caption || '').trim().slice(0, 40), hero, lines };
+  },
+
+  /** One-line text for the share sheet. */
+  shareText(model) {
+    if (model.empty) return '';
+    const head = model.hero.kind === 'gpa' ? `GPA ${model.hero.value} ${model.hero.suffix}` : `${model.hero.label}: ${model.hero.value}`;
+    return [head, ...model.lines.map(l => `${l.label}: ${l.value}`)].join(' · ') + ' — made with GPA Calculator Pro';
+  },
+
+  /** Shorten text with "…" until it fits maxWidth (uses the context's current font). */
+  fit(ctx, text, maxWidth) {
+    let t = String(text);
+    if (ctx.measureText(t).width <= maxWidth) return t;
+    while (t.length > 1 && ctx.measureText(t + '…').width > maxWidth) t = t.slice(0, -1);
+    return t + '…';
+  },
+
+  /** Draw the card onto any 2D context (canvas or test double). */
+  draw(ctx, model) {
+    const W = this.SIZE, H = this.SIZE, C = this.COLORS, cx = W / 2;
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, C.top); grad.addColorStop(1, C.bottom);
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+    ctx.textBaseline = 'alphabetic';
+
+    // brand
+    ctx.textAlign = 'left'; ctx.fillStyle = C.acc;
+    ctx.font = '700 40px Sora, sans-serif';
+    ctx.fillText('GPA Pro', 72, 112);
+
+    if (model.empty) {
+      ctx.textAlign = 'center'; ctx.fillStyle = C.mute; ctx.font = '500 36px "Plus Jakarta Sans", sans-serif';
+      ctx.fillText(this.fit(ctx, model.reason, W - 160), cx, H / 2);
+      return;
+    }
+
+    if (model.caption) {
+      ctx.textAlign = 'center'; ctx.fillStyle = C.text; ctx.font = '600 46px Sora, sans-serif';
+      ctx.fillText(this.fit(ctx, model.caption, W - 160), cx, 230);
+    }
+
+    // hero
+    const cy = 455, hero = model.hero;
+    if (hero.kind === 'gpa') {
+      ctx.lineWidth = 28; ctx.lineCap = 'round';
+      ctx.strokeStyle = C.track; ctx.beginPath(); ctx.arc(cx, cy, 190, 0, Math.PI * 2); ctx.stroke();
+      if (hero.pct > 0) {
+        ctx.strokeStyle = C.acc; ctx.beginPath();
+        ctx.arc(cx, cy, 190, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * hero.pct); ctx.stroke();
+      }
+      ctx.textAlign = 'center'; ctx.fillStyle = C.text; ctx.font = '800 118px Sora, sans-serif';
+      ctx.fillText(hero.value, cx, cy + 36);
+      ctx.fillStyle = C.mute; ctx.font = '500 32px "Plus Jakarta Sans", sans-serif';
+      ctx.fillText(hero.suffix, cx, cy + 92);
+    } else {
+      ctx.textAlign = 'center'; ctx.fillStyle = C.mute; ctx.font = '600 34px "Plus Jakarta Sans", sans-serif';
+      ctx.fillText(hero.label.toUpperCase(), cx, cy - 50);
+      ctx.fillStyle = C.acc; ctx.font = '800 88px Sora, sans-serif';
+      ctx.fillText(this.fit(ctx, hero.value, W - 160), cx, cy + 50);
+    }
+
+    // detail rows (max 4)
+    let y = 735;
+    for (const row of model.lines.slice(0, 4)) {
+      ctx.fillStyle = C.line; ctx.fillRect(120, y - 52, W - 240, 2);
+      ctx.textAlign = 'left'; ctx.fillStyle = C.mute; ctx.font = '500 34px "Plus Jakarta Sans", sans-serif';
+      ctx.fillText(row.label, 120, y);
+      ctx.textAlign = 'right'; ctx.fillStyle = C.text; ctx.font = '700 38px Sora, sans-serif';
+      ctx.fillText(this.fit(ctx, row.value, 520), W - 120, y);
+      y += 78;
+    }
+
+    // footer
+    ctx.textAlign = 'center'; ctx.fillStyle = C.mute; ctx.font = '500 26px "Plus Jakarta Sans", sans-serif';
+    ctx.fillText('Made with GPA Calculator Pro', cx, H - 44);
+  },
+};
+
 /* ============================================================
    9. UI MODULE
    ============================================================ */
@@ -1651,6 +1763,100 @@ function applyScale(scale, { silent = false } = {}) {
     UI.toast('Could not switch scale', 'error');
   }
 }
+const CardUI = {
+  KEY: 'gpapro_card_opts',
+  opts: { gpa: true, classification: true, cgpa: true, units: false, scale: true },
+  model: null,
+
+  init() {
+    const $ = id => document.getElementById(id);
+    this.els = { modal: $('card-modal'), canvas: $('card-canvas'), caption: $('card-caption'), msg: $('card-msg'),
+                 download: $('card-download'), share: $('card-share'), open: $('share-btn'), close: $('card-close') };
+    const e = this.els;
+
+    try { Object.assign(this.opts, JSON.parse(localStorage.getItem(this.KEY) || '{}')); } catch { /* use defaults */ }
+    e.modal.querySelectorAll('[data-opt]').forEach(box => {
+      box.checked = !!this.opts[box.dataset.opt];
+      box.addEventListener('change', () => {
+        this.opts[box.dataset.opt] = box.checked;
+        try { localStorage.setItem(this.KEY, JSON.stringify(this.opts)); } catch { /* ignore */ }
+        this.render();
+      });
+    });
+
+    e.open.addEventListener('click', () => this.open());
+    e.close.addEventListener('click', () => this.close());
+    e.modal.addEventListener('click', ev => { if (ev.target === e.modal) this.close(); });
+    e.modal.addEventListener('keydown', ev => { if (ev.key === 'Escape') this.close(); });
+    e.caption.addEventListener('input', () => this.render());
+    e.download.addEventListener('click', () => this.download());
+    e.share.addEventListener('click', () => this.share());
+
+    // Native share sheet needs file sharing support (mobile browsers, some desktop ones, HTTPS only)
+    const probe = typeof File === 'function' ? new File([''], 'x.png', { type: 'image/png' }) : null;
+    this.canShare = !!(navigator.share && navigator.canShare && probe && navigator.canShare({ files: [probe] }));
+    if (!this.canShare) { e.share.disabled = true; e.share.title = 'Sharing is not supported in this browser. Use Download.'; }
+  },
+
+  open() {
+    this.els.modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+    this.render();
+  },
+
+  close() { this.els.modal.hidden = true; document.body.style.overflow = ''; },
+
+  async render() {
+    syncStateFromDOM();
+    const result = Calculator.calculate(State.courses, State.scale, State.repeatRule);
+    const info   = Calculator.classify(result.gpa, State.scale);
+    const cg     = CGPA.calculate();
+    const scale  = GRADE_SCALES[State.scale];
+
+    this.model = ShareCard.buildModel({
+      hasData: result.validCount > 0, gpa: result.gpa, scaleMax: scale.max, scaleLabel: scale.label,
+      classLabel: info ? info.label : '', totalUnits: result.totalUnits, cgpa: cg.cgpa, cgpaCount: cg.count,
+    }, this.opts, this.els.caption.value);
+
+    this.els.msg.textContent = this.model.empty ? this.model.reason : '';
+    this.els.download.disabled = this.model.empty;
+    this.els.share.disabled = this.model.empty || !this.canShare;
+
+    try { await Promise.all([document.fonts.load('800 100px Sora'), document.fonts.load('500 30px "Plus Jakarta Sans"')]); } catch { /* fall back to system fonts */ }
+    ShareCard.draw(this.els.canvas.getContext('2d'), this.model);
+  },
+
+  toBlob() { return new Promise(res => this.els.canvas.toBlob(res, 'image/png')); },
+
+  async download() {
+    try {
+      const blob = await this.toBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `gpa-pro-result-${new Date().toISOString().slice(0, 10)}.png`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      UI.toast('Image downloaded!', 'success');
+    } catch (err) {
+      console.error('Card download failed:', err);
+      UI.toast('Could not create the image', 'error');
+    }
+  },
+
+  async share() {
+    try {
+      const blob = await this.toBlob();
+      const file = new File([blob], 'gpa-pro-result.png', { type: 'image/png' });
+      await navigator.share({ files: [file], title: 'My GPA result', text: ShareCard.shareText(this.model) });
+    } catch (err) {
+      if (err.name !== 'AbortError') {                         // AbortError = the user closed the share sheet
+        console.error('Card share failed:', err);
+        UI.toast('Sharing failed. Try Download instead.', 'error');
+      }
+    }
+  },
+};
 
 const ScaleEditor = {
   els: null, editingId: null,
@@ -2323,6 +2529,7 @@ const App = {
       /* ── Wire events ── */
       wireEvents();
       ScaleEditor.init();
+      CardUI.init();
       UI.populatePlannerTargets();
 
       /* ── Initialize ── */
